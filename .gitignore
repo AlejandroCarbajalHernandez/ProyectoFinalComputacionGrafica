@@ -13,7 +13,6 @@ x86/
 *.aps
 *.pdb
 *.ilk
-*.obj
 *.tlog
 *.log
 *.vsidx

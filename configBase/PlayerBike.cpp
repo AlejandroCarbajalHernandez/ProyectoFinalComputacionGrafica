@@ -82,6 +82,7 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
         // Ciclista: Se centra en X (0.0), se baja a los pedales (-Y) y se retrasa al asiento (+Z)
         glm::mat4 modelBiker = root;
         modelBiker = glm::translate(modelBiker, glm::vec3(0.0f, -0.65f, 0.15f));
+        modelBiker = glm::rotate(modelBiker, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelBiker));
         if (bikerModel) bikerModel->Draw(shader);
 

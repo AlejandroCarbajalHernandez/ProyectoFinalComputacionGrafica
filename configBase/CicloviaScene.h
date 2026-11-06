@@ -11,6 +11,7 @@ public:
     Model* trackModel;
     Model* bridgeModel;
     Model* treeModel;
+    Model* mountainModel;
     Model* bushModel;
     Model* signModel;
     Model* trafficConeModel;
@@ -19,7 +20,7 @@ public:
     GLuint terrainVAO, terrainVBO;
 
     const int TOTAL_SEGMENTS = 25;
-    const float SEGMENT_LENGTH = 4.0f; // Ajustado para eliminar fisuras entre tramos
+    const float SEGMENT_LENGTH = 3.0f; // Ajustado para eliminar fisuras entre tramos
 
     CicloviaScene();
     ~CicloviaScene();
