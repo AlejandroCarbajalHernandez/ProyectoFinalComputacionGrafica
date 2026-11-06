@@ -94,6 +94,7 @@ private:
 		vector<Vertex> vertices;
 		vector<GLuint> indices;
 		vector<Texture> textures;
+		glm::vec3 baseColor(0.8f);
 
 		// Walk through each of the mesh's vertices
 		for (GLuint i = 0; i < mesh->mNumVertices; i++)
@@ -146,6 +147,11 @@ private:
 		if (mesh->mMaterialIndex >= 0)
 		{
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+
+			// Color difuso (Kd) del .mtl, para modelos sin textura
+			aiColor3D kd(0.8f, 0.8f, 0.8f);
+			material->Get(AI_MATKEY_COLOR_DIFFUSE, kd);
+			baseColor = glm::vec3(kd.r, kd.g, kd.b);
 			// We assume a convention for sampler names in the shaders. Each diffuse texture should be named
 			// as 'texture_diffuseN' where N is a sequential number ranging from 1 to MAX_SAMPLER_NUMBER.
 			// Same applies to other texture as the following list summarizes:
@@ -163,7 +169,7 @@ private:
 		}
 
 		// Return a mesh object created from the extracted mesh data
-		return Mesh(vertices, indices, textures);
+		return Mesh(vertices, indices, textures, baseColor);
 	}
 
 	// Checks all material textures of a given type and loads the textures if they're not loaded yet.

@@ -64,6 +64,9 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
 
     // 1. Dibujar el plano de tierra/pasto seco que sostiene la ciclovía
+    // (el terreno no tiene textura todavía: se usa un color base verde seco)
+    glUniform1i(glGetUniformLocation(shader.Program, "useTexture"), 0);
+    glUniform3f(glGetUniformLocation(shader.Program, "baseColor"), 0.35f, 0.42f, 0.18f);
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(terrainVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
