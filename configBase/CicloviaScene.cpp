@@ -6,6 +6,7 @@ CicloviaScene::CicloviaScene() {
     trackModel = nullptr;
     bridgeModel = nullptr;
     treeModel = nullptr;
+    mountainModel = nullptr;
     bushModel = nullptr;
     signModel = nullptr;
     trafficConeModel = nullptr;
@@ -27,10 +28,12 @@ CicloviaScene::~CicloviaScene() {
 void CicloviaScene::Init() {
     trackModel = new Model((char*)"../assets/obj/pista/pista.obj");
     bridgeModel = new Model((char*)"../assets/obj/puente/puente.obj");
-    treeModel = nullptr; // Asignar cuando esté listo arbol.obj
+    treeModel = new Model((char*)"../assets/obj/arbol/arbol.obj");
+    mountainModel = new Model((char*)"../assets/obj/Monta\xF1" "a/monta\xF1" "a.obj");
     bushModel = new Model((char*)"../assets/obj/arbusto/arbusto.obj");
     trafficConeModel = new Model((char*)"../assets/obj/tope/tope.obj");
     signModel = new Model((char*)"../assets/obj/senal-alto/senal-alto.obj");
+    
 
     // Plano de terreno base (Pasto seco / tierra montañosa del Ajusco)
     float groundVertices[] = {
@@ -64,6 +67,9 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
 
     // 1. Dibujar el plano de tierra/pasto seco que sostiene la ciclovía
+    // (el terreno no tiene textura todavía: se usa un color base verde seco)
+    glUniform1i(glGetUniformLocation(shader.Program, "useTexture"), 0);
+    glUniform3f(glGetUniformLocation(shader.Program, "baseColor"), 0.35f, 0.42f, 0.18f);
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(terrainVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -124,6 +130,42 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
             model = glm::scale(model, glm::vec3(0.12f, 0.12f, 0.12f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
             bushModel->Draw(shader);
+        }
+    }
+    // 7. Árboles a los lados de la ciclovía
+    if (treeModel) {
+        for (int i = 0; i < TOTAL_SEGMENTS; i += 2) {
+            float z = -i * SEGMENT_LENGTH;
+            float escala = 1.0f;
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(7.0f, 0.0f, z));
+            model = glm::scale(model, glm::vec3(escala));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            treeModel->Draw(shader);
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(-8.0f, 0.0f, z - 1.5f));
+            model = glm::scale(model, glm::vec3(escala));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            treeModel->Draw(shader);
+        }
+    }
+    // 8. Montañas de fondo
+    if (mountainModel) {
+        float posiciones[5][3] = {
+            { 55.0f, -0.05f,  -15.0f },
+            { -55.0f, -0.05f,  -45.0f },
+            { 55.0f, -0.05f,  -75.0f },
+            { -55.0f, -0.05f, -105.0f },
+            { 0.0f, -0.05f, -118.0f }
+        };
+        for (int i = 0; i < 5; i++) {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(posiciones[i][0], posiciones[i][1], posiciones[i][2]));
+            model = glm::scale(model, glm::vec3(5.0f, 5.0f, 5.0f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            mountainModel->Draw(shader);
         }
     }
 }
