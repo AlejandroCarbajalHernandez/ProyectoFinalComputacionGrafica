@@ -27,6 +27,8 @@ struct Vertex
 	glm::vec3 Normal;
 	// TexCoords
 	glm::vec2 TexCoords;
+	// Hueso (segmento rigido) al que pertenece el vertice, para animar el cuerpo
+	float BoneId;
 };
 
 struct Texture
@@ -45,11 +47,14 @@ public:
 	vector<Texture> textures;
 	// Color base (Kd del .mtl) que se usa cuando el material no tiene textura
 	glm::vec3 baseColor;
+	// Nombre del objeto en el .obj (sirve para animar piezas sueltas, como las ruedas)
+	string name;
 
 	/*  Functions  */
 	// Constructor
-	Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures, glm::vec3 baseColor = glm::vec3(0.8f))
+	Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures, glm::vec3 baseColor = glm::vec3(0.8f), string name = "")
 	{
+		this->name = name;
 		this->baseColor = baseColor;
 		this->vertices = vertices;
 		this->indices = indices;
@@ -60,6 +65,15 @@ public:
 	}
 
 	// Render the mesh
+	// Vuelve a subir los vertices a la GPU (despues de cambiar BoneId)
+	void UploadVertices()
+	{
+		glBindVertexArray(this->VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+		glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(Vertex), &this->vertices[0], GL_STATIC_DRAW);
+		glBindVertexArray(0);
+	}
+
 	void Draw(Shader shader)
 	{
 		// Bind appropriate textures
@@ -147,6 +161,9 @@ private:
 		// Vertex Texture Coords
 		glEnableVertexAttribArray(2);
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *)offsetof(Vertex, TexCoords));
+		// Bone id
+		glEnableVertexAttribArray(3);
+		glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *)offsetof(Vertex, BoneId));
 
 		glBindVertexArray(0);
 	}
