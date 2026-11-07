@@ -14,6 +14,7 @@ public:
     float speed;
     float turnSpeed;
     float wheelRotation;
+    float pitch;   // inclinacion de la bici en subidas y bajadas (grados)
 
     Model* bikeModel;
     Model* bikerModel;
