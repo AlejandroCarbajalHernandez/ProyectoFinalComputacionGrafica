@@ -7,7 +7,7 @@ PlayerBike::PlayerBike() {
     // Apoyado directamente sobre la superficie de la pista
     position = glm::vec3(0.0f, 0.20f, 0.0f);
     rotation = 0.0f;
-    speed = 8.5f;
+    speed = 2.0f;
     turnSpeed = 65.0f;
     wheelRotation = 0.0f;
 
@@ -26,6 +26,13 @@ PlayerBike::~PlayerBike() {
 
 void PlayerBike::Init() {
     bikeModel = new Model((char*)"../assets/obj/bicicleta/bicicleta.obj");
+    bikeModel->SetColorMatching("Cuadro", glm::vec3(0.80f, 0.10f, 0.10f));
+    bikeModel->SetColorMatching("Caucho", glm::vec3(0.05f, 0.05f, 0.05f));
+    bikeModel->SetColorMatching("Radios", glm::vec3(0.90f, 0.90f, 0.90f));
+    bikeModel->SetColorMatching("Maza", glm::vec3(0.60f, 0.60f, 0.65f));
+    bikeModel->SetColorMatching("Sillin", glm::vec3(0.10f, 0.10f, 0.10f));
+    bikeModel->SetColorMatching("Manubrio", glm::vec3(0.10f, 0.10f, 0.10f));
+
     bikerModel = new Model((char*)"../assets/obj/ciclista1/modelado-ciclista-blender.obj");
     helmetModel = new Model((char*)"../assets/obj/casco-ciclista/casco-ciclista.obj");
     backpackModel = new Model((char*)"../assets/obj/equipaje/equipaje.obj");
@@ -68,7 +75,24 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
     // Solo la bicicleta necesita corrección de 90° por cómo se exportó de Blender
     modelBike = glm::rotate(modelBike, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelBike));
-    if (bikeModel) bikeModel->Draw(shader);
+    if (bikeModel) {
+        // Cuadro, manubrio y asiento (todo menos las ruedas)
+        bikeModel->DrawExcluding(shader, "Trasera", "Delantera");
+
+        // Ruedas: giran sobre su propio centro (eje Z de la bicicleta).
+        // Centros medidos en el modelo: trasera x=-0.52, delantera x=0.55.
+        // El signo menos hace que giren hacia adelante al avanzar.
+        float centros[2] = { -0.52f, 0.55f };
+        const char* nombres[2] = { "Trasera", "Delantera" };
+        for (int w = 0; w < 2; w++) {
+            glm::mat4 modelWheel = modelBike;
+            modelWheel = glm::translate(modelWheel, glm::vec3(centros[w], 0.0f, 0.0f));
+            modelWheel = glm::rotate(modelWheel, glm::radians(-wheelRotation), glm::vec3(0.0f, 0.0f, 1.0f));
+            modelWheel = glm::translate(modelWheel, glm::vec3(-centros[w], 0.0f, 0.0f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelWheel));
+            bikeModel->DrawMatching(shader, nombres[w]);
+        }
+    }
 
     // 3. Bolsa / Maleta (Se empuja hacia adelante en -Z y arriba en Y)
     glm::mat4 modelBag = root;
@@ -88,8 +112,8 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
 
         // Casco: Se alinea con la cabeza del ciclista en Z y se sube en Y
         glm::mat4 modelHelmet = root;
-        modelHelmet = glm::translate(modelHelmet, glm::vec3(0.0f, 1.25f, 0.15f));
-        modelHelmet = glm::scale(modelHelmet, glm::vec3(0.22f, 0.22f, 0.22f));
+        modelHelmet = glm::translate(modelHelmet, glm::vec3(0.0f, 1.28f, 0.09f));
+        modelHelmet = glm::scale(modelHelmet, glm::vec3(0.15f, 0.13f, 0.11f));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelHelmet));
         if (helmetModel) helmetModel->Draw(shader);
     }

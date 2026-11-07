@@ -41,6 +41,32 @@ public:
 		}
 	}
 
+	// Dibuja solo las piezas cuyo nombre contiene 'clave' (por ejemplo "Trasera")
+	void DrawMatching(Shader shader, const string& clave)
+	{
+		for (GLuint i = 0; i < this->meshes.size(); i++)
+			if (this->meshes[i].name.find(clave) != string::npos)
+				this->meshes[i].Draw(shader);
+	}
+
+	// Dibuja todas las piezas, menos las que contienen alguna de las dos claves
+	void DrawExcluding(Shader shader, const string& claveA, const string& claveB)
+	{
+		for (GLuint i = 0; i < this->meshes.size(); i++)
+		{
+			const string& n = this->meshes[i].name;
+			if (n.find(claveA) == string::npos && n.find(claveB) == string::npos)
+				this->meshes[i].Draw(shader);
+		}
+	}
+	// Cambia el color base de las piezas cuyo nombre contiene 'clave'
+	void SetColorMatching(const string& clave, glm::vec3 color)
+	{
+		for (GLuint i = 0; i < this->meshes.size(); i++)
+			if (this->meshes[i].name.find(clave) != string::npos)
+				this->meshes[i].baseColor = color;
+	}
+
 private:
 	/*  Model Data  */
 	vector<Mesh> meshes;
@@ -169,7 +195,7 @@ private:
 		}
 
 		// Return a mesh object created from the extracted mesh data
-		return Mesh(vertices, indices, textures, baseColor);
+		return Mesh(vertices, indices, textures, baseColor, string(mesh->mName.C_Str()));
 	}
 
 	// Checks all material textures of a given type and loads the textures if they're not loaded yet.

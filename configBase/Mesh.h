@@ -45,11 +45,14 @@ public:
 	vector<Texture> textures;
 	// Color base (Kd del .mtl) que se usa cuando el material no tiene textura
 	glm::vec3 baseColor;
+	// Nombre del objeto en el .obj (sirve para animar piezas sueltas, como las ruedas)
+	string name;
 
 	/*  Functions  */
 	// Constructor
-	Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures, glm::vec3 baseColor = glm::vec3(0.8f))
+	Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures, glm::vec3 baseColor = glm::vec3(0.8f), string name = "")
 	{
+		this->name = name;
 		this->baseColor = baseColor;
 		this->vertices = vertices;
 		this->indices = indices;
