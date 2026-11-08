@@ -50,6 +50,15 @@ public:
 		this->updateCameraVectors();
 	}
 
+	// Coloca la camara en una posicion y orientacion concretas (usado por las teclas de ubicacion)
+	void SetView(glm::vec3 newPosition, GLfloat newYaw, GLfloat newPitch)
+	{
+		this->position = newPosition;
+		this->yaw = newYaw;
+		this->pitch = newPitch;
+		this->updateCameraVectors();
+	}
+
 	// Returns the view matrix calculated using Eular Angles and the LookAt Matrix
 	glm::mat4 GetViewMatrix()
 	{

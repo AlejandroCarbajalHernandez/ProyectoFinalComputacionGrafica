@@ -48,120 +48,99 @@ uniform DirLight dirLight;
 uniform PointLight pointLights[NUMBER_OF_POINT_LIGHTS];
 uniform SpotLight spotLight;
 uniform Material material;
-uniform bool useTexture;   // true si el modelo tiene textura
-uniform vec3 baseColor;    // color Kd del .mtl cuando no hay textura
 
-vec3 Albedo(vec2 uv)
-{
-    if (useTexture) return texture(material.diffuse, uv).rgb;
-    return baseColor;
-}
+// Mallas SIN textura: Mesh::Draw pone useColor = 1 y meshColor = Kd del .mtl.
+// Para todo lo demas (superficies de las escenas, modelos con textura) useColor vale 0.
+uniform int  useColor;
+uniform vec3 meshColor;
 
-// Prototipos de funciones
-vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir);
-vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
-vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
+// Prototipos. albedo = color base del material (textura o Kd), specMask = brillo especular del material
+vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, vec3 specMask);
+vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, vec3 specMask);
+vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, vec3 specMask);
 
 void main()
 {
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
 
+    // Color base del material. IMPORTANTE: se aplica UNA sola vez (antes la textura se multiplicaba dos veces
+    // y todo se veia oscuro y sucio).
+    vec3 albedo;
+    vec3 specMask;
+    if (useColor == 1) {
+        albedo = meshColor;
+        specMask = vec3(0.10);
+    } else {
+        vec4 texColor = texture(material.diffuse, TexCoords);
+        albedo = texColor.rgb;
+        if (texColor.a < 0.1 || length(albedo) < 0.02) albedo = vec3(0.85);   // respaldo si no hay imagen
+        specMask = texture(material.specular, TexCoords).rgb;
+    }
+
     // 1. Luz direccional (Sol)
-    vec3 result = CalcDirLight(dirLight, norm, viewDir);
+    vec3 result = CalcDirLight(dirLight, norm, viewDir, albedo, specMask);
 
-    // 2. Luz de reflector (Faro de la bicicleta)
-    result += CalcSpotLight(spotLight, norm, FragPos, viewDir);
+    // 2. Luz de reflector (faro de la bicicleta)
+    result += CalcSpotLight(spotLight, norm, FragPos, viewDir, albedo, specMask);
 
-    // El color (textura o Kd) ya se aplico dentro de cada luz
-    if (useTexture && texture(material.diffuse, TexCoords).a < 0.1) discard;
-    color = vec4(result, 1.0);
+    color = vec4(clamp(result, 0.0, 1.0), 1.0);
 }
 
-// Cálculo de Luz Direccional
-vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir)
+// Luz Direccional (Sol)
+vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, vec3 specMask)
 {
     vec3 lightDir = normalize(-light.direction);
-    
-    // Difuso
+
     float diff = max(dot(normal, lightDir), 0.0);
-    
-    // Especular
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    
-    vec3 ambient = light.ambient * Albedo(TexCoords);
-    vec3 diffuse = light.diffuse * diff * Albedo(TexCoords);
-    vec3 specular = light.specular * spec * vec3(0.25);
-    
-    // Respaldo de intensidad si no hay mapa de texturas
-    if (length(ambient + diffuse) < 0.02) {
-        ambient = light.ambient;
-        diffuse = light.diffuse * diff;
-        specular = light.specular * spec;
-    }
-    
+
+    vec3 ambient  = light.ambient * albedo;
+    vec3 diffuse  = light.diffuse * diff * albedo;
+    vec3 specular = light.specular * spec * specMask;
+
     return (ambient + diffuse + specular);
 }
 
-// Cálculo de Luz Puntual
-vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
+// Luz Puntual
+vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, vec3 specMask)
 {
     vec3 lightDir = normalize(light.position - fragPos);
-    
+
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    
+
     float distance = length(light.position - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
-    
-    vec3 ambient = light.ambient * Albedo(TexCoords);
-    vec3 diffuse = light.diffuse * diff * Albedo(TexCoords);
-    vec3 specular = light.specular * spec * vec3(0.25);
-    
-    if (length(ambient + diffuse) < 0.02) {
-        ambient = light.ambient;
-        diffuse = light.diffuse * diff;
-        specular = light.specular * spec;
-    }
-    
-    ambient *= attenuation;
-    diffuse *= attenuation;
-    specular *= attenuation;
-    
-    return (ambient + diffuse + specular);
+
+    vec3 ambient  = light.ambient * albedo;
+    vec3 diffuse  = light.diffuse * diff * albedo;
+    vec3 specular = light.specular * spec * specMask;
+
+    return (ambient + diffuse + specular) * attenuation;
 }
 
-// Cálculo de Luz Focal (Spotlight / Faro)
-vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
+// Luz Focal (faro)
+vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, vec3 specMask)
 {
     vec3 lightDir = normalize(light.position - fragPos);
-    
+
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    
+
     float distance = length(light.position - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
-    
+
     float theta = dot(lightDir, normalize(-light.direction));
     float epsilon = light.cutOff - light.outerCutOff;
     float intensity = clamp((theta - light.outerCutOff) / epsilon, 0.0, 1.0);
-    
-    vec3 ambient = light.ambient * Albedo(TexCoords);
-    vec3 diffuse = light.diffuse * diff * Albedo(TexCoords);
-    vec3 specular = light.specular * spec * vec3(0.25);
-    
-    if (length(ambient + diffuse) < 0.02) {
-        ambient = light.ambient;
-        diffuse = light.diffuse * diff;
-        specular = light.specular * spec;
-    }
-    
-    ambient *= attenuation * intensity;
-    diffuse *= attenuation * intensity;
-    specular *= attenuation * intensity;
-    
-    return (ambient + diffuse + specular);
+
+    vec3 ambient  = light.ambient * albedo;
+    vec3 diffuse  = light.diffuse * diff * albedo;
+    vec3 specular = light.specular * spec * specMask;
+
+    return (ambient + diffuse + specular) * attenuation * intensity;
 }
