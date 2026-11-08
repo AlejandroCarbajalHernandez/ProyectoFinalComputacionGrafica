@@ -10,7 +10,7 @@ public:
     // Modelos generales
     Model* trackModel;
     Model* bridgeModel;
-    Model* treeModel;          // Ocote
+    Model* treeModel;          // Ocote / Pino montañés
     Model* mountainModel;
     Model* bushModel;
     Model* signModel;
@@ -35,15 +35,15 @@ public:
 
     PolancoScene polanco;
 
-    // Terreno y manto árido
+    // Terreno base (verde) y manto árido (tepetate)
     GLuint terrainVAO, terrainVBO;
     GLuint aridVAO, aridVBO;
     int terrainCount;
     int aridCount;
 
-    // Pista: Asfalto, raya, bordillos y terracería separadas
+    // Pista: 0 Asfalto, 1 Raya amarilla, 2 Bordillos, 3 Terracería rústica
     GLuint roadVAO, roadVBO;
-    int roadStart[4]; // 0: Asfalto, 1: Raya amarilla, 2: Bordillo concreto, 3: Terracería rústica
+    int roadStart[4];
     int roadCount[4];
 
     void BuildRoad();
@@ -51,6 +51,12 @@ public:
     void DrawUrbana(Shader& shader, GLint modelLoc);
     void DrawRural(Shader& shader, GLint modelLoc);
     void DrawPueblo(Shader& shader, GLint modelLoc);
+
+    // Renderizado jerárquico articular para cuadrúpedos
+    void DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
+        const glm::mat4& root, float walkPhase,
+        float xHombro, float xCadera, float yCadera,
+        float ampDeg = 20.0f);
 
     const int TOTAL_SEGMENTS = 25;
     const float SEGMENT_LENGTH = 3.0f;

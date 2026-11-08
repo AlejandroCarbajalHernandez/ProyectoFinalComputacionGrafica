@@ -94,7 +94,7 @@ void CicloviaScene::Init() {
     tepetateModel = new Model((char*)"../assets/obj/Tepetate/Tepetate.obj");
     torreModel = new Model((char*)"../assets/obj/torre-alta-tension/torre-alta-tension.obj");
 
-    // Fauna
+    // Fauna rural
     perroModel = new Model((char*)"../assets/obj/perro/perro.obj");
     cabraModel = new Model((char*)"../assets/obj/Cabra/Cabra.obj");
     ovejaModel = new Model((char*)"../assets/obj/oveja/Oveja.obj");
@@ -159,7 +159,7 @@ void CicloviaScene::Init() {
     polanco.Init();
 }
 
-// Manto árido estrictamente entre 320 y 415 m
+// Manto árido estrictamente entre 320 y 415 m (deja verde el resto hacia Tepoztlán)
 void CicloviaScene::BuildAridTerrain() {
     std::vector<float> aridVerts;
     const float S_INICIO_ARIDO = 320.0f;
@@ -218,7 +218,7 @@ void CicloviaScene::BuildAridTerrain() {
     glBindVertexArray(0);
 }
 
-// Construye Asfalto, Raya, Bordillos y Terracería (415 m a 475 m)
+// Construye Asfalto (0-415 m) y Terracería rústica (415-475 m)
 void CicloviaScene::BuildRoad() {
     std::vector<float> asfalto, linea, bordillo, terraceria;
 
@@ -239,7 +239,7 @@ void CicloviaScene::BuildRoad() {
 
     const std::vector<Ruta::Muestra>& m = Ruta::Muestras();
     const float yPista = 0.02f, yBordillo = 0.10f, anchoBordillo = 0.18f;
-    const float S_CORTE_TERRACERIA = 415.0f; // Asfalto termina aquí; inicia terracería rústica
+    const float S_CORTE_TERRACERIA = 415.0f;
 
     for (size_t i = 0; i + 1 < m.size(); i++) {
         const Ruta::Muestra& a = m[i];
@@ -254,7 +254,7 @@ void CicloviaScene::BuildRoad() {
         glm::vec3 Lb = b.pos - rb * wb, Rb = b.pos + rb * wb;
 
         if (a.s < S_CORTE_TERRACERIA) {
-            // TRAMO 1: ASFALTO URBANO Y RURAL
+            // Asfalto
             quad(asfalto, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista);
 
             // Raya amarilla central
@@ -273,7 +273,7 @@ void CicloviaScene::BuildRoad() {
             }
         }
         else {
-            // TRAMO 2: TERRACERÍA PREVIA A TEPOZTLÁN (sin raya y sin bordillos de concreto)
+            // Terracería rústica (sin bordillo ni raya)
             quad(terraceria, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista);
         }
     }
@@ -314,7 +314,7 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glDrawArrays(GL_TRIANGLES, 0, terrainCount);
     glBindVertexArray(0);
 
-    // 2. Manto árido: Color tepetate / tierra arcillosa (320 a 415 m)
+    // 2. Manto árido: Color tepetate (320 a 415 m)
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.62f, 0.50f, 0.33f);
     glBindVertexArray(aridVAO);
     glDrawArrays(GL_TRIANGLES, 0, aridCount);
@@ -325,24 +325,21 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(roadVAO);
 
-    // Asfalto
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.30f, 0.30f, 0.32f);
     glDrawArrays(GL_TRIANGLES, roadStart[0], roadCount[0]);
 
-    // Raya amarilla
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.95f, 0.78f, 0.10f);
     glDrawArrays(GL_TRIANGLES, roadStart[1], roadCount[1]);
 
-    // Bordillos de concreto
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.70f, 0.70f, 0.68f);
     glDrawArrays(GL_TRIANGLES, roadStart[2], roadCount[2]);
 
-    // Terracería apisonada (415 a 475 m)
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.48f, 0.38f, 0.26f);
     glDrawArrays(GL_TRIANGLES, roadStart[3], roadCount[3]);
 
     glBindVertexArray(0);
 
+    // Restaurar texturas / colores MTL de los modelos OBJ
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
 
     DrawUrbana(shader, modelLoc);
@@ -355,13 +352,55 @@ void CicloviaScene::DrawUrbana(Shader& shader, GLint modelLoc) {
 }
 
 void CicloviaScene::DrawPueblo(Shader& shader, GLint modelLoc) {
-    // E3: Inicia a los 475 m en la cota de 26 m de altura
+}
+
+void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
+    const glm::mat4& root, float walkPhase,
+    float xHombro, float xCadera, float yCadera,
+    float ampDeg)
+{
+    if (!m) return;
+
+    // 1. Dibuja el cuerpo y cabeza excluyendo las patas con 3 argumentos exactos:
+    // (Shader, primer filtro, segundo filtro)
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(root));
+    m->DrawExcluding(shader, "Pata_D", "Pata_T");
+
+    // 2. Ángulos de oscilación diagonal cruzada
+    float angDI = std::sin(walkPhase) * ampDeg;
+    float angTD = std::sin(walkPhase) * (ampDeg * 0.90f);
+    float angDD = -std::sin(walkPhase) * ampDeg;
+    float angTI = -std::sin(walkPhase) * (ampDeg * 0.90f);
+
+    struct ArticulacionPata {
+        const char* nombre;
+        float angulo;
+        float xPivot;
+    };
+
+    ArticulacionPata patas[4] = {
+        { "Pata_DI", angDI, xHombro },
+        { "Pata_DD", angDD, xHombro },
+        { "Pata_TI", angTI, xCadera },
+        { "Pata_TD", angTD, xCadera }
+    };
+
+    // 3. Renderizado de cada extremidad
+    for (int p = 0; p < 4; p++) {
+        glm::mat4 mPata = root;
+        mPata = glm::translate(mPata, glm::vec3(patas[p].xPivot, yCadera, 0.0f));
+        mPata = glm::rotate(mPata, glm::radians(patas[p].angulo), glm::vec3(0.0f, 0.0f, 1.0f));
+        mPata = glm::translate(mPata, glm::vec3(-patas[p].xPivot, -yCadera, 0.0f));
+
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(mPata));
+        m->DrawMatching(shader, patas[p].nombre);
+    }
 }
 
 // ==============================================================================
 // E2: Recorrido Rural (210 a 475 m)
 // - Distribución estratificada por franjas (CERO solapamientos)
-// - Animales caminando y pastando en trayectorias elípticas seguras (> 4.0 m)
+// - Fauna con ciclo realista: CAMINA SIEMPRE ADELANTE -> SE DETIENE A PASTAR -> GIRA -> CAMINA
 // ==============================================================================
 void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
@@ -369,7 +408,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     const float FIN_BOSQUE = 320.0f;
     const float INICIO_ARIDO = 320.0f;
     const float FIN_ARIDO = 415.0f; // Fin exacto del bioma árido
-    const float FIN_E2 = 475.0f; // Cota de 26 m
+    const float FIN_E2 = 475.0f; // Cota de 26 m de altura
 
     auto punto = [](float s, float lado) {
         Ruta::Muestra p = Ruta::En(s);
@@ -393,7 +432,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             for (int L = 0; L < 2; L++) {
                 int sem = k * 2 + L;
                 float sJ = s + azar(sem) * 3.0f;
-                float dist = 7.5f + azar(sem + 500) * 7.5f; // Bien alejado de la pista
+                float dist = 7.5f + azar(sem + 500) * 7.5f;
                 float esc = 0.90f + azar(sem + 900) * 0.25f;
                 float giro = azar(sem + 1300) * 360.0f;
                 glm::vec3 p = punto(sJ, (L == 0 ? 1.0f : -1.0f) * dist);
@@ -414,7 +453,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             for (int L = 0; L < 2; L++) {
                 int sem = 3000 + k * 2 + L;
                 float sJ = s + azar(sem) * 2.5f;
-                float dist = 4.2f + azar(sem + 500) * 2.5f; // > 4.0 m
+                float dist = 4.2f + azar(sem + 500) * 2.5f;
                 float esc = 0.12f * (0.90f + azar(sem + 900) * 0.20f);
                 glm::vec3 p = punto(sJ, (L == 0 ? 1.0f : -1.0f) * dist);
 
@@ -429,8 +468,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
 
     // -------------------------------------------------------------------------
     // 2. BIOMA ÁRIDO (320 a 415 m) SIN SOLAPAMIENTOS
-    // Franja Media: Se alterna Huizache (slot par) o Maguey (slot impar)
-    // Franja Corta: Nopal o Tepetate con Zacatón de relleno
     // -------------------------------------------------------------------------
     int slot = 0;
     for (float s = INICIO_ARIDO + 3.0f; s < FIN_ARIDO; s += 5.5f, slot++) {
@@ -438,7 +475,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             int sem = slot * 2 + L;
             float signo = (L == 0 ? 1.0f : -1.0f);
 
-            // FRANJA MEDIA (7.0 m a 12.0 m): Alternancia Huizache vs Maguey
+            // FRANJA MEDIA (7.0 m a 12.0 m): Huizache o Maguey
             if (slot % 2 == 0) {
                 if (huizacheModel) {
                     float dist = 7.5f + azar(sem + 100) * 4.5f;
@@ -464,10 +501,10 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 }
             }
 
-            // FRANJA CORTA (4.2 m a 6.2 m): Nopal vs Roca de Tepetate
+            // FRANJA CORTA (4.2 m a 6.2 m): Nopal o Tepetate
             if (slot % 2 == 0) {
                 if (nopalModel) {
-                    float dist = 4.8f + azar(sem + 300) * 1.6f; // Siempre > 4.5 m
+                    float dist = 4.8f + azar(sem + 300) * 1.6f;
                     glm::vec3 p = punto(s + 2.5f, signo * dist);
                     model = glm::mat4(1.0f);
                     model = glm::translate(model, p);
@@ -490,7 +527,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 }
             }
 
-            // Zacatón seco de relleno orgánico (desplazado en s)
+            // Zacatón de relleno
             if (zacatonModel) {
                 float distZ = 4.0f + azar(sem + 600) * 3.5f;
                 glm::vec3 pZ = punto(s + 1.2f, signo * distZ);
@@ -504,7 +541,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // Gavillas agrícolas en parcelas alejadas (> 14.0 m)
     if (gavillaModel) {
         for (float sG = 335.0f; sG <= 405.0f; sG += 22.0f) {
             for (int L = 0; L < 2; L++) {
@@ -518,7 +554,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // Torres de alta tensión (a 38 m de la vía)
     if (torreModel) {
         for (float sT = 325.0f; sT <= 405.0f; sT += 45.0f) {
             glm::vec3 pTorre = punto(sT, 38.0f);
@@ -532,110 +567,192 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     }
 
     // -------------------------------------------------------------------------
-    // 3. FAUNA EN MOVIMIENTO (CAMINATA Y PASTOREO PROCEDURAL)
-    // Trayectorias elípticas locales con cabeceo de paso. Siempre a > 4.2 m del eje.
+    // 3. FAUNA NATURAL CON CICLO: AVANCE FORWARD -> DETENCIÓN -> GIRO EN LUGAR
     // -------------------------------------------------------------------------
     float t = (float)glfwGetTime();
     const float S_REBANO = 370.0f;
     Ruta::Muestra pMuestra = Ruta::En(S_REBANO);
     float rumboBase = pMuestra.headingDeg;
 
-    // A. Ovejas: Pequeño recorrido elíptico pastando con cadencia de pasos
+    // Estructura de cinemática natural determinista
+    struct CinemataCuadrupedo {
+        glm::vec2 offsetActual;
+        float anguloGiroDeg;
+        float walkPhase;
+        float ampPatas;
+        float bobbingY;
+        float pastoreoPitch;
+    };
+
+    // Función que calcula el comportamiento paso a paso en bucle cerrado
+    auto calcularPasoNatural = [&](float tGlobal, float durPaso, float durPausa, float durGiro,
+        float velFrec, float radioS, float radioL, float fOffset)
+        {
+            CinemataCuadrupedo res;
+            // 4 waypoints que forman un cuadrilátero de pastoreo seguro
+            const glm::vec2 wp[4] = {
+                glm::vec2(0.0f,    0.0f),
+                glm::vec2(radioS,  radioL),
+                glm::vec2(radioS * 0.4f, -radioL * 0.8f),
+                glm::vec2(-radioS * 0.7f,  radioL * 0.3f)
+            };
+
+            float tSeg = durPaso + durPausa + durGiro;
+            float tCiclo = tSeg * 4.0f;
+            float tLocal = std::fmod(tGlobal + fOffset, tCiclo);
+            if (tLocal < 0.0f) tLocal += tCiclo;
+
+            int tramo = (int)(tLocal / tSeg);
+            float tau = tLocal - tramo * tSeg;
+
+            int iSig = (tramo + 1) % 4;
+            glm::vec2 A = wp[tramo];
+            glm::vec2 B = wp[iSig];
+            glm::vec2 delta = B - A;
+
+            // Dirección angular natural hacia donde camina (en grados respecto a la ruta)
+            float anguloHaciaB = glm::degrees(std::atan2(-delta.y, delta.x));
+
+            int iSig2 = (tramo + 2) % 4;
+            glm::vec2 C = wp[iSig2];
+            glm::vec2 deltaSig = C - B;
+            float anguloHaciaC = glm::degrees(std::atan2(-deltaSig.y, deltaSig.x));
+
+            if (tau < durPaso) {
+                // FASE 1: CAMINATA ESTRICTAMENTE HACIA ADELANTE
+                float u = tau / durPaso;
+                res.offsetActual = A + delta * u;
+                res.anguloGiroDeg = anguloHaciaB;
+                res.walkPhase = tau * velFrec;
+                res.ampPatas = 22.0f;
+                res.bobbingY = std::abs(std::sin(res.walkPhase)) * 0.022f;
+                res.pastoreoPitch = 0.0f;
+            }
+            else if (tau < durPaso + durPausa) {
+                // FASE 2: DETENIDO EN EL LUGAR (PASTANDO CON PATAS QUIETAS)
+                float tPausa = tau - durPaso;
+                res.offsetActual = B;
+                res.anguloGiroDeg = anguloHaciaB;
+                res.walkPhase = 0.0f;
+                res.ampPatas = 0.0f; // Patitas firmes en el suelo sin moverse
+                res.bobbingY = 0.0f;
+                // Cabeceo lento simulando que come hierba del suelo
+                res.pastoreoPitch = std::sin(tPausa * 2.5f) * 4.5f;
+            }
+            else {
+                // FASE 3: GIRO SUAVE EN EL LUGAR HACIA LA NUEVA DIRECCIÓN
+                float tGiro = tau - (durPaso + durPausa);
+                float uGiro = tGiro / durGiro;
+                float factorSuave = uGiro * uGiro * (3.0f - 2.0f * uGiro);
+
+                // Interpolación angular continua
+                float diff = anguloHaciaC - anguloHaciaB;
+                while (diff > 180.0f)  diff -= 360.0f;
+                while (diff < -180.0f) diff += 360.0f;
+
+                res.offsetActual = B;
+                res.anguloGiroDeg = anguloHaciaB + diff * factorSuave;
+                // Pasitos muy cortos para reacomodar las patas durante el giro
+                res.walkPhase = tGiro * 5.0f;
+                res.ampPatas = 8.0f;
+                res.bobbingY = std::abs(std::sin(res.walkPhase)) * 0.008f;
+                res.pastoreoPitch = 0.0f;
+            }
+
+            return res;
+        };
+
+    // A. CABRAS / CHIVOS (Paso rápido, pausa ágil y giro de exploración)
+    if (cabraModel) {
+        const struct { float ds; float lateral; float fOff; } cbData[] = {
+            { -3.5f,  6.2f, 0.0f },
+            {  0.0f,  6.6f, 3.2f },
+            {  2.8f,  6.0f, 6.8f },
+            { -1.8f, -6.2f, 9.5f }
+        };
+
+        for (const auto& cb : cbData) {
+            // Camina 2.2 s, se detiene a pastar 2.0 s, gira 0.8 s
+            CinemataCuadrupedo c = calcularPasoNatural(t, 2.2f, 2.0f, 0.8f, 7.5f, 1.2f, 0.6f, cb.fOff);
+
+            glm::vec3 p = punto(S_REBANO + cb.ds + c.offsetActual.x, cb.lateral + c.offsetActual.y);
+            p.y += c.bobbingY;
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, p);
+            model = glm::rotate(model, glm::radians(rumboBase + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::rotate(model, glm::radians(c.pastoreoPitch), glm::vec3(0.0f, 0.0f, 1.0f)); // Cabeceo
+
+            // Articulación de patas con parámetros exactos de Blender
+            DrawCuadrupedo(cabraModel, shader, modelLoc, model, c.walkPhase, 0.24f, -0.26f, 0.63f, c.ampPatas);
+        }
+    }
+
+    // B. OVEJAS / BORREGOS (Paso calmo, pausas largas de pastoreo en grupo)
     if (ovejaModel) {
-        const struct { float ds; float lateral; float rot; float fOff; float vel; } ovData[] = {
-            { -4.0f,  4.5f,  30.0f, 0.0f, 0.45f }, { -2.5f,  5.2f,  85.0f, 1.2f, 0.50f },
-            { -1.0f,  4.4f, -20.0f, 2.5f, 0.40f }, {  0.5f,  5.5f,  45.0f, 3.8f, 0.55f },
-            {  2.0f,  4.8f, 110.0f, 0.7f, 0.48f }, {  3.8f,  5.3f,  60.0f, 2.1f, 0.42f },
-            { -3.0f, -4.8f, -40.0f, 1.9f, 0.46f }, { -0.5f, -5.5f, -75.0f, 3.1f, 0.52f },
-            {  1.5f, -4.7f, -10.0f, 0.4f, 0.44f }, {  3.2f, -5.2f, -60.0f, 2.7f, 0.47f }
+        const struct { float ds; float lateral; float fOff; } ovData[] = {
+            { -4.0f,  4.5f,  0.5f }, { -2.5f,  5.2f,  3.7f },
+            { -1.0f,  4.4f,  6.2f }, {  0.5f,  5.5f,  1.8f },
+            {  2.0f,  4.8f,  8.4f }, { -3.0f, -4.8f,  4.9f },
+            { -0.5f, -5.5f,  7.1f }, {  1.5f, -4.7f, 10.3f }
         };
 
         for (const auto& ov : ovData) {
-            // Desplazamiento de caminata suave (radio 0.8 m en s, 0.4 m lateral)
-            float caminataS = std::sin(t * ov.vel + ov.fOff) * 0.8f;
-            float caminataL = std::cos(t * ov.vel + ov.fOff) * 0.4f;
-            // Elevación vertical con cada paso al caminar
-            float pasoY = std::abs(std::sin(t * ov.vel * 4.0f + ov.fOff)) * 0.025f;
+            // Camina 2.5 s, se detiene a pastar 3.0 s, gira 1.0 s
+            CinemataCuadrupedo c = calcularPasoNatural(t, 2.5f, 3.0f, 1.0f, 6.2f, 0.9f, 0.45f, ov.fOff);
 
-            glm::vec3 p = punto(S_REBANO + ov.ds + caminataS, ov.lateral + caminataL);
-            p.y += pasoY;
-
-            // Orientación según la dirección de caminata
-            float giroMarcha = std::cos(t * ov.vel + ov.fOff) * 20.0f;
-            float respiro = 1.0f + std::sin(t * 2.2f + ov.fOff) * 0.015f;
+            glm::vec3 p = punto(S_REBANO + ov.ds + c.offsetActual.x, ov.lateral + c.offsetActual.y);
+            p.y += c.bobbingY;
 
             model = glm::mat4(1.0f);
             model = glm::translate(model, p);
-            model = glm::rotate(model, glm::radians(rumboBase + ov.rot + giroMarcha), glm::vec3(0.0f, 1.0f, 0.0f));
-            model = glm::scale(model, glm::vec3(1.0f, 1.0f, respiro));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            ovejaModel->Draw(shader);
+            model = glm::rotate(model, glm::radians(rumboBase + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::rotate(model, glm::radians(c.pastoreoPitch), glm::vec3(0.0f, 0.0f, 1.0f));
+
+            DrawCuadrupedo(ovejaModel, shader, modelLoc, model, c.walkPhase, 0.18f, -0.18f, 0.40f, c.ampPatas);
         }
     }
 
-    // B. Cabras: Trepando y cambiando de posición en el talud
-    if (cabraModel) {
-        const struct { float ds; float lateral; float rot; float fOff; } cbData[] = {
-            { -3.5f,  6.2f, -15.0f, 0.5f }, {  0.0f,  6.6f,  40.0f, 2.3f },
-            {  2.8f,  6.0f, -45.0f, 1.1f }, { -1.8f, -6.2f,  20.0f, 3.4f }
-        };
-        for (const auto& cb : cbData) {
-            float camS = std::sin(t * 0.6f + cb.fOff) * 1.1f;
-            float pasoY = std::abs(std::sin(t * 2.4f + cb.fOff)) * 0.035f;
+    // C. CABALLO CASTAÑO (Zancada pausada, se detiene e impone presencia)
+    if (caballoModel) {
+        // Camina 3.0 s, se detiene calmo 3.5 s, gira 1.2 s
+        CinemataCuadrupedo c = calcularPasoNatural(t, 3.0f, 3.5f, 1.2f, 5.0f, 1.6f, 0.7f, 0.0f);
 
-            glm::vec3 p = punto(S_REBANO + cb.ds + camS, cb.lateral);
-            p.y += pasoY;
-            float giroAlerta = std::sin(t * 0.6f + cb.fOff) * 25.0f;
+        glm::vec3 p = punto(S_REBANO + 6.5f + c.offsetActual.x, 5.4f + c.offsetActual.y);
+        p.y += c.bobbingY;
 
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, p);
-            model = glm::rotate(model, glm::radians(rumboBase + cb.rot + giroAlerta), glm::vec3(0.0f, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            cabraModel->Draw(shader);
-        }
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, p);
+        model = glm::rotate(model, glm::radians(rumboBase - 20.0f + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(c.pastoreoPitch * 0.4f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        DrawCuadrupedo(caballoModel, shader, modelLoc, model, c.walkPhase, 0.50f, -0.52f, 1.28f, c.ampPatas);
     }
 
-    // C. Perros pastores: Trote de patrullaje vigilando el flanco
+    // D. PERROS PASTORES (Patrullaje dinámico y perro en guardia vigilante)
     if (perroModel) {
-        // Perro 1: Trote corto de ida y vuelta a la derecha
-        float patrulla1 = std::sin(t * 0.8f) * 1.4f;
-        float troteP1 = std::abs(std::sin(t * 4.8f)) * 0.04f;
-        float rumboPerro1 = (std::cos(t * 0.8f) >= 0.0f) ? 0.0f : 180.0f;
+        // Perro 1: Patrullaje activo en forma de romboide
+        CinemataCuadrupedo c = calcularPasoNatural(t, 2.0f, 1.2f, 0.6f, 11.0f, 1.5f, 0.8f, 1.5f);
 
-        glm::vec3 pP1 = punto(S_REBANO - 5.5f + patrulla1, 4.4f);
-        pP1.y += troteP1;
+        glm::vec3 pP1 = punto(S_REBANO - 5.5f + c.offsetActual.x, 4.4f + c.offsetActual.y);
+        pP1.y += c.bobbingY;
 
         model = glm::mat4(1.0f);
         model = glm::translate(model, pP1);
-        model = glm::rotate(model, glm::radians(rumboBase - 20.0f + rumboPerro1), glm::vec3(0.0f, 1.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        perroModel->Draw(shader);
+        model = glm::rotate(model, glm::radians(rumboBase - 15.0f + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
 
-        // Perro 2: Sentado / echado vigilante en el flanco izquierdo
+        DrawCuadrupedo(perroModel, shader, modelLoc, model, c.walkPhase, 0.18f, -0.18f, 0.35f, c.ampPatas);
+
+        // Perro 2: En guardia vigilando el camino desde el flanco izquierdo
         glm::vec3 pP2 = punto(S_REBANO + 2.5f, -4.6f);
         float respiroP2 = 1.0f + std::sin(t * 3.5f) * 0.02f;
+
         model = glm::mat4(1.0f);
         model = glm::translate(model, pP2);
         model = glm::rotate(model, glm::radians(rumboBase + 45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(1.0f, respiroP2, 1.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        perroModel->Draw(shader);
-    }
 
-    // D. Caballo castaño: Paso lento y majestuoso en el campo
-    if (caballoModel) {
-        float pasoCaballoS = std::sin(t * 0.35f) * 1.5f;
-        float pasoCaballoL = std::cos(t * 0.35f) * 0.5f;
-        float elevacionPaso = std::abs(std::sin(t * 1.4f)) * 0.045f;
-        float giroPaso = std::cos(t * 0.35f) * 15.0f;
-
-        glm::vec3 pCaballo = punto(S_REBANO + 6.5f + pasoCaballoS, 5.4f + pasoCaballoL);
-        pCaballo.y += elevacionPaso;
-
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, pCaballo);
-        model = glm::rotate(model, glm::radians(rumboBase - 20.0f + giroPaso), glm::vec3(0.0f, 1.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        caballoModel->Draw(shader);
+        // Patas inmóviles (ampDeg = 0)
+        DrawCuadrupedo(perroModel, shader, modelLoc, model, 0.0f, 0.18f, -0.18f, 0.35f, 0.0f);
     }
 }
