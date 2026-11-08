@@ -16,23 +16,35 @@
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
+void ResetToStart();
+void PrintPosition();
 
 const GLuint WIDTH = 1280, HEIGHT = 720;
 int SCREEN_WIDTH, SCREEN_HEIGHT;
 
 Camera camera(glm::vec3(0.0f, 1.5f, 3.0f));
 PlayerBike player;
-CicloviaScene scene;
+CicloviaScene scene;   // incluye Polanco (zona urbana) en el mismo mundo
 
-GLfloat lastX = WIDTH / 2.0;
-GLfloat lastY = HEIGHT / 2.0;
+// Faro de la bici (es de dia, asi que casi no se necesita). 0 = apagado, 1 = intensidad original.
+const float HEADLIGHT = 0.25f;
+
+// Direccion del sol (inclinado, para que las fachadas reciban luz y se noten los volumenes)
+const glm::vec3 SUN_DIR(-0.25f, -0.75f, -0.60f);
+
+// Inicio de la pista (se guarda despues de player.Init())
+glm::vec3 startPosition(0.0f);
+float startRotation = 0.0f;
+
+GLfloat lastX = WIDTH / 2.0f;
+GLfloat lastY = HEIGHT / 2.0f;
 bool keys[1024];
 bool firstMouse = true;
 
-// Estado de cámara:
-// 0 = Primera Persona GoPro (Fotos 28, 30, 31)
-// 1 = Tercera Persona Persecución (Foto 29)
-// 2 = Cámara Libre de depuración
+// Estado de camara:
+// 0 = Primera Persona GoPro
+// 1 = Tercera Persona Persecucion
+// 2 = Camara Libre de depuracion
 int cameraMode = 0;
 
 GLfloat deltaTime = 0.0f;
@@ -68,74 +80,78 @@ int main() {
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     glEnable(GL_DEPTH_TEST);
+  
 
     Shader lightingShader("Shader/lighting.vs", "Shader/lighting.frag");
 
     player.Init();
-    scene.Init();
+    startPosition = player.position;
+    startRotation = player.rotation;
+    scene.Init();          // carga la Ciclovia y Polanco
+
+    ResetToStart();        // deja la camara libre lista en el inicio de la pista
 
     lightingShader.Use();
     glUniform1i(glGetUniformLocation(lightingShader.Program, "material.diffuse"), 0);
     glUniform1i(glGetUniformLocation(lightingShader.Program, "material.specular"), 1);
 
-    // FOV amplio de 65 grados para simular lente angular de GoPro
-    glm::mat4 projection = glm::perspective(glm::radians(65.0f), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 250.0f);
+    // FOV amplio de 65 grados (lente angular de GoPro). Plano lejano 500 para ver los edificios del fondo.
+    glm::mat4 projection = glm::perspective(glm::radians(65.0f), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 500.0f);
 
     while (!glfwWindowShouldClose(window)) {
-        GLfloat currentFrame = glfwGetTime();
+        GLfloat currentFrame = static_cast<GLfloat>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
         glfwPollEvents();
         DoMovement();
 
-        // Tono de cielo azul claro de montaña
+        // Cielo azul claro
         glClearColor(0.50f, 0.72f, 0.88f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         lightingShader.Use();
 
-        // 1. Luz del Sol (Ajusco / Montaña)
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), -0.3f, -1.0f, -0.4f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), 0.55f, 0.55f, 0.50f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), 0.80f, 0.80f, 0.75f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), 0.25f, 0.25f, 0.25f);
+        // 1. Luz del Sol
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), 0.38f, 0.40f, 0.45f);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), 0.85f, 0.82f, 0.72f);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), 0.20f, 0.20f, 0.20f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 16.0f);
 
         // 2. Faro frontal
         glm::vec3 front = player.GetFrontVector();
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.position"), player.position.x, player.position.y + 0.6f, player.position.z);
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.direction"), front.x, -0.1f, front.z);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f, 0.1f, 0.1f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f, 0.9f, 0.8f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f, 0.4f, 0.4f);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f * HEADLIGHT, 0.1f * HEADLIGHT, 0.1f * HEADLIGHT);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f * HEADLIGHT, 0.9f * HEADLIGHT, 0.8f * HEADLIGHT);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f * HEADLIGHT, 0.4f * HEADLIGHT, 0.4f * HEADLIGHT);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.constant"), 1.0f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.linear"), 0.07f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.quadratic"), 0.017f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.cutOff"), glm::cos(glm::radians(15.0f)));
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.outerCutOff"), glm::cos(glm::radians(22.0f)));
 
-        // 3. Sistema de cámaras
+        // 3. Sistema de camaras
         glm::mat4 view;
         glm::vec3 eyePos;
 
         if (cameraMode == 0) {
-            // MODO 1: GoPro Cicloturista sobre el manillar (Fotos 28, 30, 31)
-            // Se sitúa en el pecho, justo detrás de la bolsa de viaje naranja
+            // MODO 1: GoPro sobre el manillar
             glm::vec3 headOffset = glm::vec3(-sin(glm::radians(player.rotation)) * 0.15f, 0.75f, -cos(glm::radians(player.rotation)) * 0.15f);
             eyePos = player.position + headOffset;
             glm::vec3 target = eyePos + front + glm::vec3(0.0f, -0.15f, 0.0f);
             view = glm::lookAt(eyePos, target, glm::vec3(0.0f, 1.0f, 0.0f));
         }
         else if (cameraMode == 1) {
-            // MODO 2: Tercera Persona dinámica de persecución (Foto 29)
+            // MODO 2: Tercera persona de persecucion
             glm::vec3 followOffset = glm::vec3(sin(glm::radians(player.rotation)) * 1.8f, 1.1f, cos(glm::radians(player.rotation)) * 1.8f);
             eyePos = player.position + followOffset;
             glm::vec3 target = player.position + glm::vec3(0.0f, 0.55f, 0.0f);
             view = glm::lookAt(eyePos, target, glm::vec3(0.0f, 1.0f, 0.0f));
         }
         else {
-            // MODO 3: Cámara Libre
+            // MODO 3: Camara libre
             view = camera.GetViewMatrix();
             eyePos = camera.GetPosition();
         }
@@ -149,8 +165,9 @@ int main() {
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-        // 4. Renderizado
+        // 4. Renderizado del mundo (Polanco + ascenso rural + pueblo)
         scene.Draw(lightingShader, modelLoc);
+
         player.Draw(lightingShader, modelLoc, (cameraMode == 0));
 
         glfwSwapBuffers(window);
@@ -182,23 +199,59 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
             keys[key] = false;
     }
 
-    // Tecla C alterna entre: GoPro (1ra persona) -> Persecución (3ra persona) -> Cámara Libre
+    // Tecla C: GoPro -> Persecucion -> Camara libre
     if (keys[GLFW_KEY_C] && action == GLFW_PRESS) {
         cameraMode = (cameraMode + 1) % 3;
     }
+
+    // Tecla 2: regresar al inicio de la pista (Polanco)
+    if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
+        ResetToStart();
+    }
+
+    // Tecla P: imprime tu posicion en la consola
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+        PrintPosition();
+    }
+    // Tecla H: vuelve a mostrar los controles
+    
 }
+
+// Regresa la bici (y la camara libre) al inicio de la pista
+void ResetToStart() {
+    player.position = startPosition;
+    player.rotation = startRotation;
+
+    // Camara libre (modo 3 con la tecla C): 4 m detras de la bici, un poco arriba, mirando hacia donde mira la bici
+    glm::vec3 f = player.GetFrontVector();
+    float yaw = glm::degrees(std::atan2(f.z, f.x));
+    camera.SetView(startPosition - f * 4.0f + glm::vec3(0.0f, 2.5f, 0.0f), yaw, -12.0f);
+
+    std::cout << "[Ubicacion] Inicio de la pista (Polanco)" << std::endl;
+}
+
+void PrintPosition() {
+    std::cout << "[Posicion] bici=(" << player.position.x << ", " << player.position.y << ", " << player.position.z << ")"
+        << "  rotacion=" << player.rotation << " grados" << std::endl;
+    if (cameraMode == 2) {
+        glm::vec3 c = camera.GetPosition();
+        std::cout << "           camara libre=(" << c.x << ", " << c.y << ", " << c.z << ")" << std::endl;
+    }
+}
+
+
 
 void MouseCallback(GLFWwindow* window, double xPos, double yPos) {
     if (firstMouse) {
-        lastX = xPos;
-        lastY = yPos;
+        lastX = static_cast<GLfloat>(xPos);
+        lastY = static_cast<GLfloat>(yPos);
         firstMouse = false;
     }
 
-    GLfloat xOffset = xPos - lastX;
-    GLfloat yOffset = lastY - yPos;
-    lastX = xPos;
-    lastY = yPos;
+    GLfloat xOffset = static_cast<GLfloat>(xPos) - lastX;
+    GLfloat yOffset = lastY - static_cast<GLfloat>(yPos);
+    lastX = static_cast<GLfloat>(xPos);
+    lastY = static_cast<GLfloat>(yPos);
 
     if (cameraMode == 2) {
         camera.ProcessMouseMovement(xOffset, yOffset);
