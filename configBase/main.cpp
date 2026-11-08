@@ -12,24 +12,29 @@
 #include "Camera.h"
 #include "PlayerBike.h"
 #include "CicloviaScene.h"
-#include "PolancoScene.h"
 
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
+void ResetToStart();
+void PrintPosition();
 
 const GLuint WIDTH = 1280, HEIGHT = 720;
 int SCREEN_WIDTH, SCREEN_HEIGHT;
 
 Camera camera(glm::vec3(0.0f, 1.5f, 3.0f));
 PlayerBike player;
-CicloviaScene scene;
-PolancoScene polanco;
+CicloviaScene scene;   // incluye Polanco (zona urbana) en el mismo mundo
 
-// Escena activa: 0 = Ciclovia, 1 = Polanco  (teclas 1 y 2)
-int currentScene = 0;
-bool polancoReady = false;          // Polanco se carga solo la primera vez que se pide
-glm::vec3 cicloviaSpawn(0.0f);      // posicion inicial de la bici en la Ciclovia
+// Faro de la bici (es de dia, asi que casi no se necesita). 0 = apagado, 1 = intensidad original.
+const float HEADLIGHT = 0.25f;
+
+// Direccion del sol (inclinado, para que las fachadas reciban luz y se noten los volumenes)
+const glm::vec3 SUN_DIR(-0.25f, -0.75f, -0.60f);
+
+// Inicio de la pista (se guarda despues de player.Init())
+glm::vec3 startPosition(0.0f);
+float startRotation = 0.0f;
 
 GLfloat lastX = WIDTH / 2.0f;
 GLfloat lastY = HEIGHT / 2.0f;
@@ -75,13 +80,16 @@ int main() {
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     glEnable(GL_DEPTH_TEST);
+  
 
     Shader lightingShader("Shader/lighting.vs", "Shader/lighting.frag");
 
     player.Init();
-    cicloviaSpawn = player.position;
-    scene.Init();
-    // Polanco NO se inicializa aqui: se carga al pulsar la tecla 2 (asi la Ciclovia arranca igual que antes)
+    startPosition = player.position;
+    startRotation = player.rotation;
+    scene.Init();          // carga la Ciclovia y Polanco
+
+    ResetToStart();        // deja la camara libre lista en el inicio de la pista
 
     lightingShader.Use();
     glUniform1i(glGetUniformLocation(lightingShader.Program, "material.diffuse"), 0);
@@ -104,20 +112,20 @@ int main() {
 
         lightingShader.Use();
 
-        // 1. Luz del Sol  (CORREGIDO: faltaba la direccion de la luz y habia un "diffuse" repetido)
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), -0.3f, -1.0f, -0.4f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), 0.55f, 0.55f, 0.50f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), 0.80f, 0.80f, 0.75f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), 0.25f, 0.25f, 0.25f);
+        // 1. Luz del Sol
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), 0.38f, 0.40f, 0.45f);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), 0.85f, 0.82f, 0.72f);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), 0.20f, 0.20f, 0.20f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 16.0f);
 
         // 2. Faro frontal
         glm::vec3 front = player.GetFrontVector();
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.position"), player.position.x, player.position.y + 0.6f, player.position.z);
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.direction"), front.x, -0.1f, front.z);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f, 0.1f, 0.1f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f, 0.9f, 0.8f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f, 0.4f, 0.4f);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f * HEADLIGHT, 0.1f * HEADLIGHT, 0.1f * HEADLIGHT);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f * HEADLIGHT, 0.9f * HEADLIGHT, 0.8f * HEADLIGHT);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f * HEADLIGHT, 0.4f * HEADLIGHT, 0.4f * HEADLIGHT);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.constant"), 1.0f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.linear"), 0.07f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.quadratic"), 0.017f);
@@ -157,9 +165,8 @@ int main() {
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-        // 4. Renderizado de la escena activa
-        if (currentScene == 0) scene.Draw(lightingShader, modelLoc);
-        else                   polanco.Draw(lightingShader, modelLoc);
+        // 4. Renderizado del mundo (Polanco + ascenso rural + pueblo)
+        scene.Draw(lightingShader, modelLoc);
 
         player.Draw(lightingShader, modelLoc, (cameraMode == 0));
 
@@ -197,21 +204,42 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
         cameraMode = (cameraMode + 1) % 3;
     }
 
-    // Tecla 1: Ciclovia
-    if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
-        currentScene = 0;
-        player.position = cicloviaSpawn;
-    }
-    // Tecla 2: Polanco (se carga la primera vez que se pulsa)
+    // Tecla 2: regresar al inicio de la pista (Polanco)
     if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
-        if (!polancoReady) {
-            polanco.Init();
-            polancoReady = true;
-        }
-        currentScene = 1;
-        player.position = polanco.GetSpawnPosition();
+        ResetToStart();
+    }
+
+    // Tecla P: imprime tu posicion en la consola
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) {
+        PrintPosition();
+    }
+    // Tecla H: vuelve a mostrar los controles
+    
+}
+
+// Regresa la bici (y la camara libre) al inicio de la pista
+void ResetToStart() {
+    player.position = startPosition;
+    player.rotation = startRotation;
+
+    // Camara libre (modo 3 con la tecla C): 4 m detras de la bici, un poco arriba, mirando hacia donde mira la bici
+    glm::vec3 f = player.GetFrontVector();
+    float yaw = glm::degrees(std::atan2(f.z, f.x));
+    camera.SetView(startPosition - f * 4.0f + glm::vec3(0.0f, 2.5f, 0.0f), yaw, -12.0f);
+
+    std::cout << "[Ubicacion] Inicio de la pista (Polanco)" << std::endl;
+}
+
+void PrintPosition() {
+    std::cout << "[Posicion] bici=(" << player.position.x << ", " << player.position.y << ", " << player.position.z << ")"
+        << "  rotacion=" << player.rotation << " grados" << std::endl;
+    if (cameraMode == 2) {
+        glm::vec3 c = camera.GetPosition();
+        std::cout << "           camara libre=(" << c.x << ", " << c.y << ", " << c.z << ")" << std::endl;
     }
 }
+
+
 
 void MouseCallback(GLFWwindow* window, double xPos, double yPos) {
     if (firstMouse) {

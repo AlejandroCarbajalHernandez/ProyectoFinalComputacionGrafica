@@ -5,6 +5,7 @@
 
 #include "Shader.h"
 #include "Model.h"
+#include "PolancoScene.h"
 
 class CicloviaScene {
 public:
@@ -17,6 +18,9 @@ public:
     Model* trafficConeModel;
     Model* building1Model;
     Model* building2Model;
+
+    // Polanco: zona urbana (E1), dibujada dentro del mismo mundo
+    PolancoScene polanco;
 
     // Generador del suelo de montaña
     GLuint terrainVAO, terrainVBO;

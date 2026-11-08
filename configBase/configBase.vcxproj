@@ -149,9 +149,12 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CicloviaScene.h" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="PlayerBike.h" />
     <ClInclude Include="PolancoScene.h" />
+    <ClInclude Include="RiderPose.h" />
+    <ClInclude Include="Ruta.h" />
     <ClInclude Include="Shader.h" />
   </ItemGroup>
   <ItemGroup>
