@@ -27,6 +27,12 @@ public:
     Model* tepetateModel;
     Model* torreModel;
 
+    // Aves (animacion por keyframes + trayectoria procedural)
+    Model* aveModel;
+    Model* semaforoModel;
+    void DrawSemaforos(Shader& shader, GLint modelLoc);
+    void DrawAves(Shader& shader, GLint modelLoc);
+
     // Fauna rural
     Model* perroModel;
     Model* cabraModel;
