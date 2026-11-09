@@ -1,0 +1,23 @@
+newmtl Plaza
+Kd 0.8 0.8 0.8
+
+newmtl Pasto
+Kd 0.8 0.8 0.8
+
+newmtl Piedra_Clara
+Kd 0.8 0.8 0.8
+
+newmtl Piedra_Oscura
+Kd 0.8 0.8 0.8
+
+newmtl Casco_Oscuro
+Kd 0.8 0.8 0.8
+
+newmtl Techo
+Kd 0.8 0.8 0.8
+
+newmtl Aluminio_Hex
+Kd 0.8 0.8 0.8
+
+newmtl Acceso
+Kd 0.8 0.8 0.8

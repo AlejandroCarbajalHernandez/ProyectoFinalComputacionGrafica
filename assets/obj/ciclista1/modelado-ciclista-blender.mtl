@@ -1,0 +1,72 @@
+# Blender 5.2.2 LTS MTL File: 'None'
+# www.blender.org
+
+newmtl DefaultSkin
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.702400 0.528300 0.417400
+Ks 0.300000 0.300000 0.300000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Eye_brown
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.000000
+illum 9
+map_Kd textures/brown_eye.png
+
+newmtl Shoes05
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.048367 0.048367 0.048367
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.000000
+illum 9
+map_Kd textures/shoes05_diffuse.png
+
+newmtl eyebrow008.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.000000
+illum 1
+map_Kd textures/eyebrow008.png
+
+newmtl female_casualsuit02.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.027450 0.027450 0.027450
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.000000
+illum 9
+map_Kd textures/female_casualsuit02_diffuse.png
+
+newmtl short04.001
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.047060 0.047060 0.047060
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.000000
+illum 9
+map_Kd textures/short04_diffuse.png
+
+newmtl teethMaterial
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.854900 0.854900 0.854900
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.000000
+illum 9
+map_Kd textures/teeth.png

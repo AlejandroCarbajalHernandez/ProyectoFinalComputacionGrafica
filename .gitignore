@@ -2,3 +2,17 @@
 *.blend2
 *.blend@
 .DS_Store
+# Visual Studio y archivos de compilación
+.vs/
+Debug/
+Release/
+x64/
+x86/
+*.user
+*.suo
+*.aps
+*.pdb
+*.ilk
+*.tlog
+*.log
+*.vsidx
