@@ -34,7 +34,7 @@ public:
     Model* caballoModel;
 
     PolancoScene polanco;
-
+    Semaforo* semaforo; // <-- Correcto (debe ser de tipo Semaforo)
     // Terreno base (verde) y manto árido (tepetate)
     GLuint terrainVAO, terrainVBO;
     GLuint aridVAO, aridVBO;

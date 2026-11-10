@@ -14,6 +14,7 @@
 #include "Camera.h"
 #include "PlayerBike.h"
 #include "CicloviaScene.h"
+#include "PolancoScene.h"     // NUEVO: para pasarle a Polanco el avance de la bici (PolancoScene::riderS)
 #include "GameLogic.h"
 #include "Ruta.h"
 
@@ -243,6 +244,9 @@ void DoMovement() {
         glm::vec2 delta(player.position.x - muestras[mejorIdx].pos.x, player.position.z - muestras[mejorIdx].pos.z);
         lateralActual = glm::dot(delta, right);
     }
+
+    // NUEVO: le dice a Polanco en que punto de la ruta va la bici (activa el cruce del semaforo)
+    PolancoScene::riderS = sActual;
 
     // 3. Actualizar la lógica del juego (desgaste de PSI, hidratación, recolección y meta)
     GameStatus estadoAnterior = game.estado;
