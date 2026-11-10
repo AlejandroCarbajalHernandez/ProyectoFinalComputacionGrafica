@@ -1,16 +1,16 @@
 #pragma once
-
 #include <GL/glew.h>
 #include <glm/glm.hpp>
-
 #include "Shader.h"
 #include "Model.h"
+#include "PolancoScene.h"
 
 class CicloviaScene {
 public:
+    // Modelos generales
     Model* trackModel;
     Model* bridgeModel;
-    Model* treeModel;
+    Model* treeModel;          // Ocote / Pino montañés
     Model* mountainModel;
     Model* bushModel;
     Model* signModel;
@@ -18,20 +18,54 @@ public:
     Model* building1Model;
     Model* building2Model;
 
-    // Generador del suelo de montaña
+    // Bioma árido y rural
+    Model* huizacheModel;
+    Model* nopalModel;
+    Model* magueyModel;
+    Model* zacatonModel;
+    Model* gavillaModel;
+    Model* tepetateModel;
+    Model* torreModel;
+
+    // Aves (animacion por keyframes + trayectoria procedural)
+    Model* aveModel;
+    Model* semaforoModel;
+    void DrawSemaforos(Shader& shader, GLint modelLoc);
+    void DrawAves(Shader& shader, GLint modelLoc);
+
+    // Fauna rural
+    Model* perroModel;
+    Model* cabraModel;
+    Model* ovejaModel;
+    Model* caballoModel;
+
+    PolancoScene polanco;
+
+    // Terreno base (verde) y manto árido (tepetate)
     GLuint terrainVAO, terrainVBO;
-    // Pista que sigue el trazo de Ruta.h
-    GLuint roadVAO, roadVBO;
+    GLuint aridVAO, aridVBO;
     int terrainCount;
-    int roadStart[3];   // 0 asfalto, 1 raya central, 2 bordillos
-    int roadCount[3];
+    int aridCount;
+
+    // Pista: 0 Asfalto, 1 Raya amarilla, 2 Bordillos, 3 Terracería rústica
+    GLuint roadVAO, roadVBO;
+    int roadStart[4];
+    int roadCount[4];
+
     void BuildRoad();
-    void DrawUrbana(Shader& shader, GLint modelLoc);   // E1 Polanco (0 a 210 m)
-    void DrawRural(Shader& shader, GLint modelLoc);    // E2 ascenso rural (210 a 475 m)
-    void DrawPueblo(Shader& shader, GLint modelLoc);   // E3 Tepoztlan (475 a 685 m)
+    void BuildAridTerrain();
+    void DrawUrbana(Shader& shader, GLint modelLoc);
+    void DrawRural(Shader& shader, GLint modelLoc);
+    void DrawPueblo(Shader& shader, GLint modelLoc);
+
+    // Renderizado jerárquico articular para cuadrúpedos
+    void DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
+        const glm::mat4& root, float walkPhase,
+        float xHombro, float xCadera, float yCadera,
+        float ampDeg = 20.0f);
 
     const int TOTAL_SEGMENTS = 25;
-    const float SEGMENT_LENGTH = 3.0f; // Ajustado para eliminar fisuras entre tramos
+    const float SEGMENT_LENGTH = 3.0f;
 
     CicloviaScene();
     ~CicloviaScene();

@@ -50,11 +50,17 @@ public:
 	// Nombre del objeto en el .obj (sirve para animar piezas sueltas, como las ruedas)
 	string name;
 
+	// Nombre del material del .mtl (por ejemplo "E1_Vidrio.003") y cuanto refleja el cielo (0 = nada)
+	string materialName;
+	float reflectivity;
+
 	/*  Functions  */
 	// Constructor
-	Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures, glm::vec3 baseColor = glm::vec3(0.8f), string name = "")
+	Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures, glm::vec3 baseColor = glm::vec3(0.8f), string name = "", string materialName = "")
 	{
 		this->name = name;
+		this->materialName = materialName;
+		this->reflectivity = 0.0f;
 		this->baseColor = baseColor;
 		this->vertices = vertices;
 		this->indices = indices;
@@ -105,11 +111,14 @@ public:
 		}
 
 		// Si no hay textura difusa, el shader usa el color base del material
+		
+		
 		bool hasDiffuse = false;
 		for (GLuint i = 0; i < this->textures.size(); i++)
 			if (this->textures[i].type == "texture_diffuse") hasDiffuse = true;
-		glUniform1i(glGetUniformLocation(shader.Program, "useTexture"), hasDiffuse ? 1 : 0);
-		glUniform3f(glGetUniformLocation(shader.Program, "baseColor"), this->baseColor.r, this->baseColor.g, this->baseColor.b);
+		glUniform1i(glGetUniformLocation(shader.Program, "useColor"), hasDiffuse ? 0 : 1);
+		glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), this->baseColor.r, this->baseColor.g, this->baseColor.b);
+		glUniform1f(glGetUniformLocation(shader.Program, "materialReflect"), this->reflectivity);
 
 		// Also set each mesh's shininess property to a default value (if you want you could extend this to another mesh property and possibly change this value)
 		glUniform1f(glGetUniformLocation(shader.Program, "material.shininess"), 16.0f);

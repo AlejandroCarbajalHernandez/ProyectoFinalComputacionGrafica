@@ -6,10 +6,9 @@
 #include "Ruta.h"
 
 PlayerBike::PlayerBike() {
-    // Apoyado directamente sobre la superficie de la pista
     position = glm::vec3(0.0f, 0.20f, 0.0f);
     rotation = 0.0f;
-    speed = 6.0f;
+    speed = 6.0f;           // Velocidad normal (~21 km/h)
     turnSpeed = 65.0f;
     wheelRotation = 0.0f;
     pitch = 0.0f;
@@ -37,29 +36,59 @@ void PlayerBike::Init() {
     bikeModel->SetColorMatching("Manubrio", glm::vec3(0.10f, 0.10f, 0.10f));
 
     bikerModel = new Model((char*)"../assets/obj/ciclista1/modelado-ciclista-blender.obj");
-    // Reparte los vertices del ciclista en segmentos (piernas, brazos, torso) para animarlo
     bikerModel->AssignBones(RiderPose::BoneForVertex);
     helmetModel = new Model((char*)"../assets/obj/casco-ciclista/casco-ciclista.obj");
     backpackModel = new Model((char*)"../assets/obj/equipaje/equipaje.obj");
 }
 
 void PlayerBike::ProcessInput(bool keys[], float deltaTime) {
-    float velocity = speed * deltaTime;
+    // =========================================================================
+    // 1. TELETRANSPORTE POR ZONAS (Pruebas instantáneas)
+    // =========================================================================
+    auto teletransportarA = [&](float sMetros) {
+        Ruta::Muestra p = Ruta::En(sMetros);
+        position = p.pos;
+        position.y = Ruta::AlturaSuelo(position.x, position.z) + 0.20f;
+        rotation = p.headingDeg;
+        pitch = 0.0f;
+        };
+
+    if (keys[GLFW_KEY_1]) teletransportarA(0.0f);   // E1: Salida Polanco
+    if (keys[GLFW_KEY_2]) teletransportarA(215.0f); // E2: Inicio Bosque de Ocotes
+    if (keys[GLFW_KEY_3]) teletransportarA(325.0f); // E2: Inicio Bioma Árido / Tepetate
+    if (keys[GLFW_KEY_4]) teletransportarA(418.0f); // E2: Inicio de la Terracería
+    if (keys[GLFW_KEY_5]) teletransportarA(475.0f); // E3: Llegada a Tepoztlán (cota 26 m)
+
+    // =========================================================================
+    // 2. MODIFICADORES DE VELOCIDAD (TURBO)
+    // =========================================================================
+    float currentSpeed = speed;
+
+    // Shift Izquierdo: Turbo x6 (prueba fluida de curvas a ~120 km/h)
+    if (keys[GLFW_KEY_LEFT_SHIFT]) {
+        currentSpeed *= 6.0f;
+    }
+    // Espacio: Super Turbo x15 (vuelo rápido sobre la pista)
+    if (keys[GLFW_KEY_SPACE]) {
+        currentSpeed *= 15.0f;
+    }
+
+    float velocity = currentSpeed * deltaTime;
     float angularVelocity = turnSpeed * deltaTime;
 
     // Avanzar (W o Flecha Arriba)
     if (keys[GLFW_KEY_W] || keys[GLFW_KEY_UP]) {
         position.x -= sin(glm::radians(rotation)) * velocity;
         position.z -= cos(glm::radians(rotation)) * velocity;
-        wheelRotation += 350.0f * deltaTime; // Giro continuo de las llantas
+        wheelRotation += (currentSpeed / speed) * 350.0f * deltaTime;
     }
-    // Frenar / Reversa
+    // Frenar / Reversa (S o Flecha Abajo)
     if (keys[GLFW_KEY_S] || keys[GLFW_KEY_DOWN]) {
         position.x += sin(glm::radians(rotation)) * (velocity * 0.4f);
         position.z += cos(glm::radians(rotation)) * (velocity * 0.4f);
         wheelRotation -= 180.0f * deltaTime;
     }
-    // Giro de manubrio y trayectoria
+    // Giro lateral
     if (keys[GLFW_KEY_A] || keys[GLFW_KEY_LEFT]) {
         rotation += angularVelocity;
     }
@@ -67,7 +96,7 @@ void PlayerBike::ProcessInput(bool keys[], float deltaTime) {
         rotation -= angularVelocity;
     }
 
-    // Seguir el relieve: altura e inclinacion segun el suelo bajo la bici
+    // Adaptación vertical y cabeceo al relieve
     glm::vec3 fwd(-sin(glm::radians(rotation)), 0.0f, -cos(glm::radians(rotation)));
     float hF = Ruta::AlturaSuelo(position.x + fwd.x * 0.8f, position.z + fwd.z * 0.8f);
     float hB = Ruta::AlturaSuelo(position.x - fwd.x * 0.8f, position.z - fwd.z * 0.8f);
@@ -76,7 +105,7 @@ void PlayerBike::ProcessInput(bool keys[], float deltaTime) {
 }
 
 void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
-    // 1. Matriz raíz: posición en el mundo y dirección de manejo
+    // 1. Matriz raíz
     glm::mat4 root(1.0f);
     root = glm::translate(root, position);
     root = glm::rotate(root, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -85,16 +114,13 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
 
     // 2. Chasis de la bicicleta
     glm::mat4 modelBike = root;
-    // Solo la bicicleta necesita corrección de 90° por cómo se exportó de Blender
     modelBike = glm::rotate(modelBike, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelBike));
     if (bikeModel) {
-        // Cuadro, manubrio y asiento (todo menos las ruedas)
+        glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.30f);   // cuadro metálico: Fresnel + cielo
         bikeModel->DrawExcluding(shader, "Trasera", "Delantera");
+        glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.0f);
 
-        // Ruedas: giran sobre su propio centro (eje Z de la bicicleta).
-        // Centros medidos en el modelo: trasera x=-0.52, delantera x=0.55.
-        // El signo menos hace que giren hacia adelante al avanzar.
         float centros[2] = { -0.52f, 0.55f };
         const char* nombres[2] = { "Trasera", "Delantera" };
         for (int w = 0; w < 2; w++) {
@@ -107,7 +133,7 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
         }
     }
 
-    // 3. Bolsa / Maleta (Se empuja hacia adelante en -Z y arriba en Y)
+    // 3. Bolsa / Maleta
     glm::mat4 modelBag = root;
     modelBag = glm::translate(modelBag, glm::vec3(0.0f, 0.95f, -0.60f));
     modelBag = glm::scale(modelBag, glm::vec3(0.50f, 0.50f, 0.50f));
@@ -116,8 +142,6 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
 
     // 4. Ciclista y Casco
     if (!firstPerson) {
-        // Pose por segmentos: sentado en el sillín, manos en el manubrio y piernas pedaleando.
-        // El ángulo de la biela avanza con el giro de las ruedas.
         glm::mat4 bones[RiderPose::BONE_COUNT];
         float pedalAngle = glm::radians(-wheelRotation * 0.35f);
         RiderPose::Compute(pedalAngle, bones);
@@ -132,7 +156,7 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
         if (bikerModel) bikerModel->Draw(shader);
         glUniform1i(glGetUniformLocation(shader.Program, "useBones"), 0);
 
-        // Casco: sigue a la cabeza, que se levanta para mirar al frente
+        // Casco sobre la cabeza
         glm::mat4 modelHelmet = modelBiker * bones[RiderPose::HEAD];
         modelHelmet = glm::translate(modelHelmet, glm::vec3(0.0f, 1.88f, 0.065f));
         modelHelmet = glm::rotate(modelHelmet, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
