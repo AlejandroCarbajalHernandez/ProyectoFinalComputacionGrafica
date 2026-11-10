@@ -5,6 +5,7 @@
 #include <vector>
 #include <cmath>
 #include "Ruta.h"
+#include "AvesPose.h"
 #include <algorithm>
 
 CicloviaScene::CicloviaScene() {
@@ -17,6 +18,8 @@ CicloviaScene::CicloviaScene() {
     trafficConeModel = nullptr;
     building1Model = nullptr;
     building2Model = nullptr;
+    aveModel = nullptr;
+    semaforoModel = nullptr;
 
     huizacheModel = nullptr;
     nopalModel = nullptr;
@@ -63,6 +66,8 @@ CicloviaScene::~CicloviaScene() {
     delete gavillaModel;
     delete tepetateModel;
     delete torreModel;
+    delete aveModel;
+    delete semaforoModel;
 
     delete perroModel;
     delete cabraModel;
@@ -93,6 +98,9 @@ void CicloviaScene::Init() {
     gavillaModel = new Model((char*)"../assets/obj/Gavilla/Gavilla.obj");
     tepetateModel = new Model((char*)"../assets/obj/Tepetate/Tepetate.obj");
     torreModel = new Model((char*)"../assets/obj/torre-alta-tension/torre-alta-tension.obj");
+    aveModel = new Model((char*)"../assets/obj/bird.obj");
+    aveModel->AssignBones(AvesPose::BoneForVertex);
+    semaforoModel = new Model((char*)"../assets/obj/semaforo/semaforo.obj");
 
     // Fauna rural
     perroModel = new Model((char*)"../assets/obj/perro/perro.obj");
@@ -345,10 +353,79 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     DrawUrbana(shader, modelLoc);
     DrawRural(shader, modelLoc);
     DrawPueblo(shader, modelLoc);
+    DrawAves(shader, modelLoc);
+}
+void CicloviaScene::DrawAves(Shader& shader, GLint modelLoc) {
+    float t = (float)glfwGetTime();
+
+    // Centro del vuelo: sobre el eje de la ruta en plena zona rural
+    glm::vec3 c = Ruta::En(340.0f).pos;
+    c.y = Ruta::AlturaSuelo(c.x, c.z) + 12.0f;
+
+    glUniform1i(glGetUniformLocation(shader.Program, "useBones"), 1);
+
+    for (int i = 0; i < 3; i++) {
+        float fase = i * 2.094f;                    // 120 grados entre aves
+        float a = t * 0.35f + fase;                 // angulo en la circunferencia
+        float radio = 18.0f + i * 5.0f;
+        glm::vec3 p = c + glm::vec3(radio * cosf(a), 1.5f * sinf(t * 0.9f + fase), radio * sinf(a));
+
+        // El ave mira hacia -z; theta = pi - a la orienta con la tangente del circulo
+        float theta = glm::pi<float>() - a;
+        glm::mat4 m(1.0f);
+        m = glm::translate(m, p);
+        m = glm::rotate(m, theta, glm::vec3(0, 1, 0));
+        m = glm::rotate(m, glm::radians(-12.0f), glm::vec3(0, 0, 1));   // inclinacion en la curva
+        m = glm::scale(m, glm::vec3(0.12f));
+        m = glm::translate(m, glm::vec3(-AvesPose::CX, -AvesPose::BISAGRA_Y, -AvesPose::BISAGRA_Z));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m));
+
+        glm::mat4 bones[AvesPose::BONE_COUNT];
+        AvesPose::Compute(t + fase, bones);          // cada ave con su propio desfase de aleteo
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "bones"), AvesPose::BONE_COUNT, GL_FALSE, glm::value_ptr(bones[0]));
+
+        aveModel->Draw(shader);
+    }
+    glUniform1i(glGetUniformLocation(shader.Program, "useBones"), 0);
+}
+
+
+void CicloviaScene::DrawSemaforos(Shader& shader, GLint modelLoc) {
+    if (!semaforoModel) return;
+
+    // Ciclo: verde 6 s, ambar 2 s, rojo 6 s
+    const float T_VERDE = 6.0f, T_AMBAR = 2.0f, T_ROJO = 6.0f;
+    float ciclo = std::fmod((float)glfwGetTime(), T_VERDE + T_AMBAR + T_ROJO);
+    bool verde = ciclo < T_VERDE;
+    bool ambar = !verde && ciclo < T_VERDE + T_AMBAR;
+    bool rojo = !verde && !ambar;
+
+    // Encendida = color brillante, apagada = casi negra
+    auto luz = [](bool on, glm::vec3 c) { return on ? c * 1.5f : c * 0.12f; };
+    semaforoModel->SetColorMatching("Lente_Rojo", luz(rojo, glm::vec3(0.9f, 0.1f, 0.1f)));
+    semaforoModel->SetColorMatching("Lente_Ambar", luz(ambar, glm::vec3(0.9f, 0.6f, 0.0f)));
+    semaforoModel->SetColorMatching("Lente_Verde", luz(verde, glm::vec3(0.1f, 0.9f, 0.2f)));
+
+    const float posiciones[2] = { 55.0f, 190.0f };   // metros sobre la ruta (zona urbana)
+    for (int i = 0; i < 2; i++) {
+        Ruta::Muestra p = Ruta::En(posiciones[i]);
+        float th = glm::radians(p.headingDeg);
+        glm::vec3 pos = p.pos + glm::vec3(std::cos(th), 0.0f, -std::sin(th)) * 3.2f;   // a la derecha de la pista
+        pos.y = Ruta::AlturaSuelo(pos.x, pos.z);
+
+        glm::mat4 m(1.0f);
+        m = glm::translate(m, pos);
+        m = glm::rotate(m, glm::radians(p.headingDeg + 180.0f), glm::vec3(0, 1, 0));   // las luces miran al ciclista
+        m = glm::scale(m, glm::vec3(1.4f));
+        m = glm::translate(m, glm::vec3(2.2f, 0.0f, 0.0f));                           // el poste del modelo esta en x = -2.2
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m));
+        semaforoModel->Draw(shader);
+    }
 }
 
 void CicloviaScene::DrawUrbana(Shader& shader, GLint modelLoc) {
     polanco.Draw(shader, modelLoc);
+    DrawSemaforos(shader, modelLoc);
 }
 
 void CicloviaScene::DrawPueblo(Shader& shader, GLint modelLoc) {

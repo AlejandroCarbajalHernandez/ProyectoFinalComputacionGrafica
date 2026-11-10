@@ -16,6 +16,8 @@
 #include "CicloviaScene.h"
 #include "GameLogic.h"
 #include "Ruta.h"
+#include "Skybox.h"
+#include "Texto.h"
 
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
@@ -32,6 +34,7 @@ Camera camera(glm::vec3(0.0f, 1.5f, 3.0f));
 PlayerBike player;
 CicloviaScene scene;   // Incluye Polanco y zona rural
 GameLogic game;        // Gestor de mecánicas, presiones y coleccionables
+Skybox skybox;         // Cielo con cube map
 
 // Faro frontal de la bicicleta
 const float HEADLIGHT = 0.25f;
@@ -56,6 +59,10 @@ int cameraMode = 0;
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
+float sJugador = 0.0f;     // metros recorridos sobre la ruta
+int zonaActual = -1;       // 0 urbana, 1 rural, 2 pueblo
+float zonaTimer = 0.0f;    // tiempo que sigue visible el letrero de zona
+bool enMenu = true;        // true = pantalla de inicio / ayuda (juego en pausa)
 
 // VAO/VBO y Shader para el HUD 2D
 GLuint hudVAO = 0, hudVBO = 0;
@@ -98,6 +105,10 @@ int main() {
     startPosition = player.position;
     startRotation = player.rotation;
     scene.Init();          // Carga la Ciclovia y Polanco
+    if (!skybox.Init("../assets/skybox")) {
+        std::cout << "No se pudo cargar el cielo (revisa assets/skybox)" << std::endl;
+    }
+    Texto::Init();
     InitHUD();             // Inicializa la geometría de las barras del HUD
     game.Init();
     ResetToStart();
@@ -105,6 +116,8 @@ int main() {
     lightingShader.Use();
     glUniform1i(glGetUniformLocation(lightingShader.Program, "material.diffuse"), 0);
     glUniform1i(glGetUniformLocation(lightingShader.Program, "material.specular"), 1);
+    glUniform1i(glGetUniformLocation(lightingShader.Program, "envMap"), 5);   // el cielo va en la unidad de textura 5
+    glUniform1f(glGetUniformLocation(lightingShader.Program, "reflectivity"), 0.0f);
 
     glm::mat4 projection = glm::perspective(glm::radians(65.0f), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 500.0f);
 
@@ -180,6 +193,17 @@ int main() {
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
+        // Cielo (cube map): se dibuja primero y queda al fondo
+        skybox.Draw(view, projection);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+        // El mismo cielo queda disponible para los reflejos (unidad 5)
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, skybox.cubemap);
+        glActiveTexture(GL_TEXTURE0);
+
+        lightingShader.Use();
+
         // 4. Renderizado del mundo y fauna
         scene.Draw(lightingShader, modelLoc);
 
@@ -191,6 +215,97 @@ int main() {
 
         // 7. Renderizado del HUD en 2D (Barras de PSI y Agua)
         RenderHUD(game.psi, game.PSI_MAX, game.agua, game.AGUA_MAX, SCREEN_WIDTH, SCREEN_HEIGHT);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        {
+            const int W = SCREEN_WIDTH, H = SCREEN_HEIGHT;
+            const glm::vec4 BLANCO(1.0f), AMARILLO(1.0f, 0.85f, 0.2f, 1.0f);
+            auto centrado = [&](const std::string& s, float y, float esc, glm::vec4 c) {
+                Texto::Dibujar(s, (W - Texto::Ancho(s, esc)) * 0.5f, y, esc, c, W, H);
+                };
+
+            // Etiquetas de las barras
+            Texto::Dibujar("LLANTAS (PSI)", 35.0f, 86.0f, 2.0f, BLANCO, W, H);
+            Texto::Dibujar("HIDRATACION", 35.0f, 56.0f, 2.0f, BLANCO, W, H);
+
+            // Panel de informacion (arriba a la izquierda)
+            const char* nombres[5] = {
+                "ZONA 1 - URBANA: POLANCO",
+                "ZONA 2 - RURAL: BOSQUE DE OCOTES",
+                "ZONA 2 - RURAL: BIOMA ARIDO",
+                "ZONA 2 - RURAL: TERRACERIA",
+                "ZONA 3 - TEPOZTLAN" };
+            const char* tareas[5] = {
+                "TAREA: RESPETA EL SEMAFORO Y RECOGE AGUA",
+                "TAREA: ESQUIVA LOS CLAVOS Y RECOGE AGUA",
+                "TAREA: CRUZA EL TEPETATE Y CUIDA TU HIDRATACION",
+                "TAREA: LA TERRACERIA DESINFLA LAS LLANTAS",
+                "TAREA: LLEGA A LA PLAZA DE TEPOZTLAN" };
+            int z = (zonaActual < 0) ? 0 : zonaActual;
+            Texto::Panel(20.0f, H - 110.0f, 6400.0f, 95.0f, glm::vec4(0.0f, 0.0f, 0.0f, 0.45f), W, H);
+            Texto::Dibujar(nombres[z], 32.0f, H - 40.0f, 3.0f, AMARILLO, W, H);
+            Texto::Dibujar(tareas[z], 32.0f, H - 66.0f, 2.0f, BLANCO, W, H);
+            Texto::Dibujar("RECORRIDO: " + std::to_string((int)sJugador) + " / 685 M    ANFORAS: "
+                + std::to_string(game.anforasRecogidas) + "/" + std::to_string((int)game.anforas.size()),
+                32.0f, H - 92.0f, 2.0f, BLANCO, W, H);
+
+            // Letrero grande al cambiar de zona (se desvanece)
+            if (zonaTimer > 0.0f && game.estado == STATUS_JUGANDO) {
+                float a = std::min(1.0f, zonaTimer);
+                centrado(nombres[z], H * 0.62f, 5.0f, glm::vec4(1.0f, 0.85f, 0.2f, a));
+            }
+
+            // Fin de juego
+            if (game.estado != STATUS_JUGANDO) {
+                Texto::Panel(0.0f, H * 0.35f, (float)W, H * 0.30f, glm::vec4(0.0f, 0.0f, 0.0f, 0.65f), W, H);
+                if (game.estado == STATUS_VICTORIA) {
+                    centrado("LLEGASTE A TEPOZTLAN!", H * 0.52f, 7.0f, glm::vec4(0.3f, 1.0f, 0.4f, 1.0f));
+                    centrado("TIEMPO: " + std::to_string((int)game.tiempoTotal) + " S   ANFORAS: "
+                        + std::to_string(game.anforasRecogidas), H * 0.45f, 3.0f, BLANCO);
+                }
+                else if (game.estado == STATUS_GAME_OVER_PONCHADURA) {
+                    centrado("LLANTA PONCHADA", H * 0.52f, 7.0f, glm::vec4(1.0f, 0.3f, 0.3f, 1.0f));
+                }
+                else {
+                    centrado("DESHIDRATACION", H * 0.52f, 7.0f, glm::vec4(1.0f, 0.3f, 0.3f, 1.0f));
+                }
+                centrado("PRESIONA R PARA REINICIAR", H * 0.39f, 3.0f, BLANCO);
+            }
+
+                // Pantalla de inicio / ayuda
+                if (enMenu) {
+                    Texto::Panel(0.0f, 0.0f, (float)W, (float)H, glm::vec4(0.0f, 0.0f, 0.0f, 0.78f), W, H);
+                    centrado("CICLOVIA FERROCARRIL DE CUERNAVACA", H * 0.82f, 5.0f, AMARILLO);
+                    centrado("CDMX - TEPOZTLAN   |   EQUIPO 1 CICLOTURISMO", H * 0.75f, 2.5f, BLANCO);
+
+                    const char* controles[] = {
+                        "W / FLECHA ARRIBA ... PEDALEAR",
+                        "S / FLECHA ABAJO .... FRENAR",
+                        "A D / FLECHAS ....... GIRAR",
+                        "SHIFT ............... IMPULSO",
+                        "C ................... CAMBIAR CAMARA",
+                        "1 A 5 ............... SALTAR A UNA ZONA",
+                        "R ................... REINICIAR",
+                        "H ................... AYUDA",
+                        "ESC ................. SALIR" };
+                    float yc = H * 0.64f;
+                    for (const char* linea : controles) {
+                        Texto::Dibujar(linea, W * 0.5f - 270.0f, yc, 2.5f, BLANCO, W, H);
+                        yc -= 28.0f;
+                    }
+
+                    centrado("OBJETIVO: LLEGA A TEPOZTLAN SIN PONCHAR NI DESHIDRATARTE", H * 0.25f, 2.5f, AMARILLO);
+                    centrado("RECOGE ANFORAS DE AGUA, ESQUIVA LOS CLAVOS E INFLA EN LOS TALLERES", H * 0.20f, 2.0f, BLANCO);
+
+                    float parpadeo = 0.55f + 0.45f * std::sin((float)glfwGetTime() * 4.0f);
+                    centrado(game.tiempoTotal > 0.0f ? "PRESIONA H PARA CONTINUAR" : "PRESIONA ENTER PARA COMENZAR",
+                        H * 0.10f, 3.5f, glm::vec4(0.3f, 1.0f, 0.4f, parpadeo));
+                }
+            }
+        
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
 
         glfwSwapBuffers(window);
     }
@@ -198,6 +313,7 @@ int main() {
     if (hudVAO) glDeleteVertexArrays(1, &hudVAO);
     if (hudVBO) glDeleteBuffers(1, &hudVBO);
     if (hudProgram) glDeleteProgram(hudProgram);
+    Texto::Fin();
 
     glfwTerminate();
     return 0;
@@ -205,6 +321,7 @@ int main() {
 
 void DoMovement() {
     // 1. Cálculo de velocidad real de la bicicleta según desplazamiento
+    if (enMenu) return;
     static glm::vec3 prevPos = player.position;
     float velocidadReal = glm::length(player.position - prevPos) / (deltaTime > 0.0001f ? deltaTime : 0.016f);
     prevPos = player.position;
@@ -229,6 +346,19 @@ void DoMovement() {
             mejorIdx = i;
         }
     }
+    // Si la ventana local no encontro la pista (por ejemplo tras teletransportarse con 1-5),
+    // busca en toda la ruta
+    if (menorDist > 12.0f) {
+        for (size_t i = 0; i < muestras.size(); i += 2) {
+            float d = glm::distance(glm::vec2(player.position.x, player.position.z),
+                glm::vec2(muestras[i].pos.x, muestras[i].pos.z));
+            if (d < menorDist) {
+                menorDist = d;
+                mejorIdx = i;
+            }
+        }
+    }
+
 
     // VALIDACIÓN DE ESPACIOS MUERTOS:
     // Si la bici se aleja más de 12 metros de la pista, se considera fuera de límites:
@@ -247,6 +377,10 @@ void DoMovement() {
     // 3. Actualizar la lógica del juego (desgaste de PSI, hidratación, recolección y meta)
     GameStatus estadoAnterior = game.estado;
     game.Actualizar(deltaTime, sActual, lateralActual, velocidadReal, 0.0f);
+    sJugador = sActual;
+    int zonaNueva = (sActual < 210.0f) ? 0 : (sActual < 320.0f) ? 1 : (sActual < 415.0f) ? 2 : (sActual < 475.0f) ? 3 : 4;
+    if (zonaNueva != zonaActual) { zonaActual = zonaNueva; zonaTimer = 4.0f; }
+    if (zonaTimer > 0.0f) zonaTimer -= deltaTime;
 
     // Detección de cambios de estado para avisos en terminal
     if (game.estado != estadoAnterior) {
@@ -298,6 +432,15 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
         cameraMode = (cameraMode + 1) % 3;
     }
 
+    // ENTER: empezar. H: mostrar u ocultar la ayuda
+    if (key == GLFW_KEY_ENTER && action == GLFW_PRESS && enMenu) {
+        enMenu = false;
+        zonaActual = -1;      // para que salga el letrero de la primera zona
+    }
+    if (key == GLFW_KEY_H && action == GLFW_PRESS) {
+        enMenu = !enMenu;
+    }
+
     // Tecla 2 o R: Reiniciar partida y regresar al inicio
     if ((key == GLFW_KEY_2 || key == GLFW_KEY_R) && action == GLFW_PRESS) {
         ResetToStart();
@@ -315,6 +458,7 @@ void ResetToStart() {
 
     // Reinicia contadores de juego, presiones y coleccionables
     game.Reiniciar();
+    zonaActual = -1;
 
     glm::vec3 f = player.GetFrontVector();
     float yaw = glm::degrees(std::atan2(f.z, f.x));

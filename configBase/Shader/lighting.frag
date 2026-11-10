@@ -54,6 +54,13 @@ uniform Material material;
 uniform int  useColor;
 uniform vec3 meshColor;
 
+
+// Fresnel + reflejo del ambiente (cube map).
+// reflectivity = cuanto refleja al mirarlo de frente (0 = sin reflejo, 0.5 = metal plateado).
+uniform samplerCube envMap;
+uniform float reflectivity;
+uniform float materialReflect;   // reflejo propio de cada pieza (por ejemplo, solo el vidrio de un edificio)
+
 // Prototipos. albedo = color base del material (textura o Kd), specMask = brillo especular del material
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, vec3 specMask);
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, vec3 specMask);
@@ -83,6 +90,17 @@ void main()
 
     // 2. Luz de reflector (faro de la bicicleta)
     result += CalcSpotLight(spotLight, norm, FragPos, viewDir, albedo, specMask);
+
+    // 3. Fresnel (aproximacion de Schlick) + environment mapping:
+    // mezcla el color del material con el reflejo del cielo; refleja mas cuanto mas de lado se mira.
+        float k = max(reflectivity, materialReflect);
+    if (k > 0.0) {
+        vec3 R = reflect(-viewDir, norm);
+        vec3 entorno = texture(envMap, R).rgb;
+        float cosT = clamp(dot(norm, viewDir), 0.0, 1.0);
+        float F = k + (1.0 - k) * pow(1.0 - cosT, 5.0);
+        result = mix(result, entorno, F);
+    }
 
     color = vec4(clamp(result, 0.0, 1.0), 1.0);
 }

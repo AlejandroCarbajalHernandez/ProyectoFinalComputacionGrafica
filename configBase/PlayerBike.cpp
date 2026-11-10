@@ -117,7 +117,9 @@ void PlayerBike::Draw(Shader& shader, GLint modelLoc, bool firstPerson) {
     modelBike = glm::rotate(modelBike, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelBike));
     if (bikeModel) {
+        glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.30f);   // cuadro metálico: Fresnel + cielo
         bikeModel->DrawExcluding(shader, "Trasera", "Delantera");
+        glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.0f);
 
         float centros[2] = { -0.52f, 0.55f };
         const char* nombres[2] = { "Trasera", "Delantera" };

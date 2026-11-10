@@ -57,6 +57,15 @@ public:
 				this->meshes[i].baseColor = color;
 	}
 
+
+	// Hace que las piezas cuyo MATERIAL contiene 'clave' reflejen el cielo (Fresnel). Ejemplo: "Vidrio"
+	void SetReflectivityMaterial(const string& clave, float k)
+	{
+		for (GLuint i = 0; i < this->meshes.size(); i++)
+			if (this->meshes[i].materialName.find(clave) != string::npos)
+				this->meshes[i].reflectivity = k;
+	}
+
 	// Asigna a cada vertice un hueso segun su posicion (para animar por segmentos)
 	void AssignBones(float (*boneFor)(const glm::vec3&))
 	{
@@ -133,6 +142,8 @@ private:
 		vector<GLuint> indices;
 		vector<Texture> textures;
 		glm::vec3 baseColor(0.8f);
+		string materialName = "";
+
 
 		// Walk through each of the mesh's vertices
 		for (GLuint i = 0; i < mesh->mNumVertices; i++)
@@ -187,6 +198,12 @@ private:
 		{
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
+
+			// Nombre del material en el .mtl (por ejemplo "E1_Vidrio.003")
+			aiString nombreMat;
+			material->Get(AI_MATKEY_NAME, nombreMat);
+			materialName = nombreMat.C_Str();
+
 			// Color difuso (Kd) del .mtl, para modelos sin textura
 			aiColor3D kd(0.8f, 0.8f, 0.8f);
 			material->Get(AI_MATKEY_COLOR_DIFFUSE, kd);
@@ -208,7 +225,7 @@ private:
 		}
 
 		// Return a mesh object created from the extracted mesh data
-		return Mesh(vertices, indices, textures, baseColor, string(mesh->mName.C_Str()));
+		return Mesh(vertices, indices, textures, baseColor, string(mesh->mName.C_Str()), materialName);
 	}
 
 	// Checks all material textures of a given type and loads the textures if they're not loaded yet.
