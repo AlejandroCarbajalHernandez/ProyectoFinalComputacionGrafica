@@ -1,0 +1,48 @@
+newmtl MatPoste
+Ka 0.175 0.180 0.190
+Kd 0.350 0.360 0.380
+Ks 0.050 0.050 0.050
+Ns 16
+d 1.0
+illum 2
+
+newmtl MatCaja
+Ka 0.025 0.025 0.025
+Kd 0.050 0.050 0.050
+Ks 0.050 0.050 0.050
+Ns 16
+d 1.0
+illum 2
+
+newmtl MatVisera
+Ka 0.015 0.015 0.015
+Kd 0.030 0.030 0.030
+Ks 0.050 0.050 0.050
+Ns 16
+d 1.0
+illum 2
+
+newmtl MatRoja
+Ka 0.150 0.015 0.015
+Kd 0.300 0.030 0.030
+Ks 0.050 0.050 0.050
+Ns 16
+d 1.0
+illum 2
+
+newmtl MatAmbar
+Ka 0.160 0.100 0.010
+Kd 0.320 0.200 0.020
+Ks 0.050 0.050 0.050
+Ns 16
+d 1.0
+illum 2
+
+newmtl MatVerde
+Ka 0.015 0.140 0.050
+Kd 0.030 0.280 0.100
+Ks 0.050 0.050 0.050
+Ns 16
+d 1.0
+illum 2
+
