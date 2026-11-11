@@ -4,6 +4,8 @@
 #include "Shader.h"
 #include "Model.h"
 #include "PolancoScene.h"
+#include "TepoztlanScene.h"
+#include <vector>
 
 class CicloviaScene {
 public:
@@ -27,6 +29,12 @@ public:
     Model* tepetateModel;
     Model* torreModel;
 
+    // Aves y Señalización
+    Model* aveModel;
+    Model* semaforoModel;
+    void DrawSemaforos(Shader& shader, GLint modelLoc);
+    void DrawAves(Shader& shader, GLint modelLoc);
+
     // Fauna rural
     Model* perroModel;
     Model* cabraModel;
@@ -34,7 +42,12 @@ public:
     Model* caballoModel;
 
     PolancoScene polanco;
+<<<<<<< HEAD
     Semaforo* semaforo; // <-- Correcto (debe ser de tipo Semaforo)
+=======
+    TepoztlanScene tepoztlan;
+
+>>>>>>> origin/develop
     // Terreno base (verde) y manto árido (tepetate)
     GLuint terrainVAO, terrainVBO;
     GLuint aridVAO, aridVBO;

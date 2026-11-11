@@ -122,6 +122,16 @@ void PolancoScene::Init() {
     torreCrisA = new Model((char*)"../assets/obj/Polanco/TorreCristalA.obj");
     torreCrisB = new Model((char*)"../assets/obj/Polanco/TorreCristalB.obj");
 
+
+    // Vidrio de los edificios: Fresnel + reflejo del cielo (solo el material de vidrio; fachada y concreto quedan mate)
+    edificioA->SetReflectivityMaterial("Vidrio", 0.20f);
+    edificioB->SetReflectivityMaterial("Vidrio", 0.20f);
+    edificioC->SetReflectivityMaterial("Vidrio", 0.20f);
+    edificioBeige->SetReflectivityMaterial("Vidrio", 0.25f);
+    techoVerde->SetReflectivityMaterial("Vidrio", 0.20f);
+    torreBal->SetReflectivityMaterial("Vidrio", 0.20f);
+    torreCil->SetReflectivityMaterial("Vidrio", 0.20f);
+
     carretera = new Model((char*)"../assets/obj/Polanco/Carretera.obj");
     carreteraCruce = new Model((char*)"../assets/obj/Polanco/CarreteraCruce.obj");   // la que cruza la ciclovia
     edificio1 = new Model((char*)"../assets/obj/Polanco/edificio-01.obj");
@@ -203,7 +213,9 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         model = glm::translate(model, glm::vec3(-38.0f, -0.7f, 0.0f));
         model = glm::scale(model, glm::vec3(1.0f));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.55f);   // fachada metálica: Fresnel + cielo
         museo->Draw(shader);
+        glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.0f);    // el resto de objetos, sin reflejo
     }
 
     // ==========================================
@@ -278,7 +290,9 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
             model = Base(z);
             model = glm::translate(model, glm::vec3(-85.0f, 0.0f, 0.0f)); // Fondo profundo izquierdo
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.22f);   // cristal: Fresnel + cielo
             torreCrisB->Draw(shader);
+            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.0f);
         }
     }
 
@@ -321,7 +335,9 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
             model = glm::translate(model, glm::vec3(60.0f, 0.0f, 0.0f)); // Fondo profundo derecho
             model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.22f);   // cristal: Fresnel + cielo
             torreCrisA->Draw(shader);
+            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.0f);
         }
     }
 
