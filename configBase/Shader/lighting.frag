@@ -54,6 +54,10 @@ uniform Material material;
 uniform int  useColor;
 uniform vec3 meshColor;
 
+// Niebla: la densidad la fija main.cpp segun el tramo (0 = sin niebla)
+uniform float nieblaDensidad;
+uniform vec3  nieblaColor;
+
 
 // Fresnel + reflejo del ambiente (cube map).
 // reflectivity = cuanto refleja al mirarlo de frente (0 = sin reflejo, 0.5 = metal plateado).
@@ -102,6 +106,9 @@ void main()
         result = mix(result, entorno, F);
     }
 
+    float distCam = length(viewPos - FragPos);
+    float niebla = 1.0 - exp(-pow(distCam * nieblaDensidad, 2.0));
+    result = mix(result, nieblaColor, clamp(niebla, 0.0, 1.0));
     color = vec4(clamp(result, 0.0, 1.0), 1.0);
 }
 

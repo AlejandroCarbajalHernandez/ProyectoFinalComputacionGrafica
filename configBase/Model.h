@@ -49,6 +49,17 @@ public:
 				this->meshes[i].Draw(shader);
 	}
 
+	// Dibuja las piezas cuyo material contiene 'clave' (coincide=true) o las que NO lo contienen (coincide=false)
+	void DrawMaterialMatching(Shader shader, const string& clave, bool coincide)
+	{
+		for (GLuint i = 0; i < this->meshes.size(); i++)
+		{
+			bool c = (this->meshes[i].materialName.find(clave) != string::npos);
+			if (c == coincide)
+				this->meshes[i].Draw(shader);
+		}
+	}
+
 	// Cambia el color base de las piezas cuyo nombre contiene 'clave'
 	void SetColorMatching(const string& clave, glm::vec3 color)
 	{
@@ -197,6 +208,7 @@ private:
 		if (mesh->mMaterialIndex >= 0)
 		{
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+			
 
 
 			// Nombre del material en el .mtl (por ejemplo "E1_Vidrio.003")
@@ -226,6 +238,7 @@ private:
 
 		// Return a mesh object created from the extracted mesh data
 		return Mesh(vertices, indices, textures, baseColor, string(mesh->mName.C_Str()), materialName);
+		
 	}
 
 	// Checks all material textures of a given type and loads the textures if they're not loaded yet.

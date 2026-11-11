@@ -13,6 +13,7 @@ public:
     Model* trackModel;
     Model* bridgeModel;
     Model* treeModel;          // Ocote / Pino montañés
+    Model* ocoteModel;         // Ocote real (bosque)
     Model* mountainModel;
     Model* bushModel;
     Model* signModel;

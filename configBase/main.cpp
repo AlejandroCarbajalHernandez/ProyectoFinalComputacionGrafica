@@ -196,6 +196,15 @@ int main() {
 
         glUniform3f(glGetUniformLocation(lightingShader.Program, "viewPos"), eyePos.x, eyePos.y, eyePos.z);
 
+        // Niebla del bosque: aparece al entrar (s 210) y se disipa antes del árido (s 320)
+        auto suave = [](float a, float b, float x) {
+            float t = glm::clamp((x - a) / (b - a), 0.0f, 1.0f);
+            return t * t * (3.0f - 2.0f * t);
+            };
+        float factorNiebla = suave(205.0f, 222.0f, sJugador) * (1.0f - suave(285.0f, 318.0f, sJugador));
+        glUniform1f(glGetUniformLocation(lightingShader.Program, "nieblaDensidad"), 0.022f * factorNiebla);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "nieblaColor"), 0.72f, 0.78f, 0.80f);
+
         GLint modelLoc = glGetUniformLocation(lightingShader.Program, "model");
         GLint viewLoc = glGetUniformLocation(lightingShader.Program, "view");
         GLint projLoc = glGetUniformLocation(lightingShader.Program, "projection");

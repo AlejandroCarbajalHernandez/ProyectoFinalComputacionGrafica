@@ -13,6 +13,7 @@ CicloviaScene::CicloviaScene() {
     trackModel = nullptr;
     bridgeModel = nullptr;
     treeModel = nullptr;
+    ocoteModel = nullptr;
     mountainModel = nullptr;
     bushModel = nullptr;
     signModel = nullptr;
@@ -54,6 +55,7 @@ CicloviaScene::~CicloviaScene() {
     delete trackModel;
     delete bridgeModel;
     delete treeModel;
+    delete ocoteModel;
     delete bushModel;
     delete signModel;
     delete trafficConeModel;
@@ -86,6 +88,7 @@ CicloviaScene::~CicloviaScene() {
 void CicloviaScene::Init() {
     trackModel = new Model((char*)"../assets/obj/pista/pista.obj");
     treeModel = new Model((char*)"../assets/obj/arbol/arbol.obj"); // Ocote
+    ocoteModel = new Model((char*)"../assets/obj/ocote/ocote.obj");
     mountainModel = new Model((char*)"../assets/obj/Monta\xF1" "a/monta\xF1" "a.obj");
     bushModel = new Model((char*)"../assets/obj/arbusto/arbusto.obj");
     building1Model = new Model((char*)"../assets/obj/edificio-01/edificio-01.obj");
@@ -99,7 +102,7 @@ void CicloviaScene::Init() {
     gavillaModel = new Model((char*)"../assets/obj/Gavilla/Gavilla.obj");
     tepetateModel = new Model((char*)"../assets/obj/Tepetate/Tepetate.obj");
     torreModel = new Model((char*)"../assets/obj/torre-alta-tension/torre-alta-tension.obj");
-    aveModel = new Model((char*)"../assets/obj/bird.obj");
+    aveModel = new Model((char*)"../assets/obj/bird/bird.obj");
     aveModel->AssignBones(AvesPose::BoneForVertex);
     semaforoModel = new Model((char*)"../assets/obj/semaforo/semaforo.obj");
 
@@ -504,12 +507,30 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 float giro = azar(sem + 1300) * 360.0f;
                 glm::vec3 p = punto(sJ, (L == 0 ? 1.0f : -1.0f) * dist);
 
+                Model* arbolElegido = (azar(sem + 2100) < 0.6f && ocoteModel) ? ocoteModel : treeModel;
+                const char* claveTronco = (arbolElegido == ocoteModel) ? "Corteza" : "Tronco";
+
+                // 1) Tronco: fijo, sin viento
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, p);
                 model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
                 model = glm::scale(model, glm::vec3(esc));
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-                treeModel->Draw(shader);
+                arbolElegido->DrawMaterialMatching(shader, claveTronco, true);
+
+                // 2) Follaje: balanceo por viento, con fase distinta por árbol
+                float tViento = (float)glfwGetTime();
+                float faseV = azar(sem + 1700) * 6.28f;
+                float vientoX = std::sin(tViento * 1.3f + faseV) * 2.5f;
+                float vientoZ = std::sin(tViento * 0.9f + faseV * 1.7f) * 1.8f;
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, p);
+                model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
+                model = glm::rotate(model, glm::radians(vientoX), glm::vec3(1.0f, 0.0f, 0.0f));
+                model = glm::rotate(model, glm::radians(vientoZ), glm::vec3(0.0f, 0.0f, 1.0f));
+                model = glm::scale(model, glm::vec3(esc));
+                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+                arbolElegido->DrawMaterialMatching(shader, claveTronco, false);
             }
         }
     }
@@ -533,7 +554,51 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // 2. Bioma Árido (320 a 415 m)
+    // Troncos caídos en el suelo del bosque (solo la corteza del ocote, acostada)
+    if (ocoteModel) {
+        int kT = 0;
+        for (float s = INICIO_E2 + 12.0f; s < FIN_BOSQUE - 6.0f; s += 19.0f, kT++) {
+            int sem = 5000 + kT;
+            float signo = (kT % 2 == 0) ? 1.0f : -1.0f;
+            float dist = 5.0f + azar(sem + 500) * 2.5f;
+            glm::vec3 p = punto(s + azar(sem) * 4.0f, signo * dist);
+            p.y += 0.25f;
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, p);
+            model = glm::rotate(model, glm::radians(azar(sem + 900) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));   // acostado
+            model = glm::scale(model, glm::vec3(0.55f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            ocoteModel->DrawMaterialMatching(shader, "Corteza", true);
+        }
+    }
+
+    // Pasto (zacatón) en el sotobosque, en matas sueltas a los lados del camino
+    if (zacatonModel) {
+        int kZ = 0;
+        for (float s = INICIO_E2 + 2.0f; s < FIN_BOSQUE; s += 4.0f, kZ++) {
+            for (int L = 0; L < 2; L++) {
+                int sem = 7000 + kZ * 2 + L;
+                if (azar(sem) < 0.35f) continue;                 // deja huecos para que no se vea parejo
+                float dist = 3.2f + azar(sem + 500) * 5.5f;
+                float esc = 0.55f + azar(sem + 900) * 0.35f;
+                glm::vec3 p = punto(s + azar(sem + 300) * 3.0f, (L == 0 ? 1.0f : -1.0f) * dist);
+
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, p);
+                model = glm::rotate(model, glm::radians(azar(sem + 1300) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+                model = glm::scale(model, glm::vec3(esc));
+                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+                zacatonModel->Draw(shader);
+            }
+        }
+    }
+
+
+    // -------------------------------------------------------------------------
+    // 2. BIOMA ÁRIDO (320 a 415 m) SIN SOLAPAMIENTOS
+    // -------------------------------------------------------------------------
     int slot = 0;
     for (float s = INICIO_ARIDO + 3.0f; s < FIN_ARIDO; s += 5.5f, slot++) {
         for (int L = 0; L < 2; L++) {
