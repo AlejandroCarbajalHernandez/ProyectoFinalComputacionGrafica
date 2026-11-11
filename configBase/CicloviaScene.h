@@ -42,8 +42,12 @@ public:
     Model* caballoModel;
 
     PolancoScene polanco;
+<<<<<<< HEAD
+    Semaforo* semaforo; // <-- Correcto (debe ser de tipo Semaforo)
+=======
     TepoztlanScene tepoztlan;
 
+>>>>>>> origin/develop
     // Terreno base (verde) y manto árido (tepetate)
     GLuint terrainVAO, terrainVBO;
     GLuint aridVAO, aridVBO;
