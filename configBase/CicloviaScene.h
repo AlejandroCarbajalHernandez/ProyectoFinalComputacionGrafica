@@ -4,6 +4,7 @@
 #include "Shader.h"
 #include "Model.h"
 #include "PolancoScene.h"
+#include "TepoztlanScene.h"
 
 class CicloviaScene {
 public:
@@ -40,6 +41,7 @@ public:
     Model* caballoModel;
 
     PolancoScene polanco;
+    TepoztlanScene tepoztlan;
 
     // Terreno base (verde) y manto árido (tepetate)
     GLuint terrainVAO, terrainVBO;

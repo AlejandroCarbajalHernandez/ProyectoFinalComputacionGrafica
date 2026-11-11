@@ -63,6 +63,7 @@ float sJugador = 0.0f;     // metros recorridos sobre la ruta
 int zonaActual = -1;       // 0 urbana, 1 rural, 2 pueblo
 float zonaTimer = 0.0f;    // tiempo que sigue visible el letrero de zona
 bool enMenu = true;        // true = pantalla de inicio / ayuda (juego en pausa)
+bool modoExploracionTepoz = false; //true = permite navegar en modo turista por Tepoztlán
 
 // VAO/VBO y Shader para el HUD 2D
 GLuint hudVAO = 0, hudVBO = 0;
@@ -246,7 +247,7 @@ int main() {
             Texto::Panel(20.0f, H - 110.0f, 6400.0f, 95.0f, glm::vec4(0.0f, 0.0f, 0.0f, 0.45f), W, H);
             Texto::Dibujar(nombres[z], 32.0f, H - 40.0f, 3.0f, AMARILLO, W, H);
             Texto::Dibujar(tareas[z], 32.0f, H - 66.0f, 2.0f, BLANCO, W, H);
-            Texto::Dibujar("RECORRIDO: " + std::to_string((int)sJugador) + " / 685 M    ANFORAS: "
+            Texto::Dibujar("RECORRIDO: " + std::to_string((int)sJugador) + " / 530 M    ANFORAS: "
                 + std::to_string(game.anforasRecogidas) + "/" + std::to_string((int)game.anforas.size()),
                 32.0f, H - 92.0f, 2.0f, BLANCO, W, H);
 
@@ -258,19 +259,29 @@ int main() {
 
             // Fin de juego
             if (game.estado != STATUS_JUGANDO) {
-                Texto::Panel(0.0f, H * 0.35f, (float)W, H * 0.30f, glm::vec4(0.0f, 0.0f, 0.0f, 0.65f), W, H);
+                Texto::Panel(0.0f, H * 0.32f, (float)W, H * 0.36f, glm::vec4(0.0f, 0.0f, 0.0f, 0.70f), W, H);
                 if (game.estado == STATUS_VICTORIA) {
-                    centrado("LLEGASTE A TEPOZTLAN!", H * 0.52f, 7.0f, glm::vec4(0.3f, 1.0f, 0.4f, 1.0f));
-                    centrado("TIEMPO: " + std::to_string((int)game.tiempoTotal) + " S   ANFORAS: "
-                        + std::to_string(game.anforasRecogidas), H * 0.45f, 3.0f, BLANCO);
+                    centrado("LLEGASTE A TEPOZTLAN!", H * 0.60f, 6.0f, glm::vec4(0.3f, 1.0f, 0.4f, 1.0f));
+                    centrado("TIEMPO: " + std::to_string((int)game.tiempoTotal) + " S    ANFORAS: "
+                        + std::to_string(game.anforasRecogidas), H * 0.51f, 2.5f, BLANCO);
+
+                    // Botón / Cuadrito destacado "SEGUIR RECORRIDO"
+                    float btnW = 400.0f, btnH = 46.0f;
+                    float btnX = (W - btnW) * 0.5f;
+                    float btnY = H * 0.40f;
+                    Texto::Panel(btnX, btnY, btnW, btnH, glm::vec4(0.12f, 0.50f, 0.90f, 0.90f), W, H);
+                    centrado("SEGUIR RECORRIDO [ ENTER ]", btnY + 12.0f, 2.5f, BLANCO);
+
+                    centrado("PRESIONA R PARA REINICIAR", H * 0.34f, 2.0f, glm::vec4(0.8f, 0.8f, 0.8f, 1.0f));
                 }
                 else if (game.estado == STATUS_GAME_OVER_PONCHADURA) {
                     centrado("LLANTA PONCHADA", H * 0.52f, 7.0f, glm::vec4(1.0f, 0.3f, 0.3f, 1.0f));
+                    centrado("PRESIONA R PARA REINICIAR", H * 0.39f, 3.0f, BLANCO);
                 }
                 else {
                     centrado("DESHIDRATACION", H * 0.52f, 7.0f, glm::vec4(1.0f, 0.3f, 0.3f, 1.0f));
+                    centrado("PRESIONA R PARA REINICIAR", H * 0.39f, 3.0f, BLANCO);
                 }
-                centrado("PRESIONA R PARA REINICIAR", H * 0.39f, 3.0f, BLANCO);
             }
 
                 // Pantalla de inicio / ayuda
@@ -376,7 +387,14 @@ void DoMovement() {
 
     // 3. Actualizar la lógica del juego (desgaste de PSI, hidratación, recolección y meta)
     GameStatus estadoAnterior = game.estado;
+    float psiGuardado = game.psi;
+    float aguaGuardada = game.agua;
     game.Actualizar(deltaTime, sActual, lateralActual, velocidadReal, 0.0f);
+    if (modoExploracionTepoz) {
+        game.estado = STATUS_JUGANDO;  // Evita que la pantalla de victoria vuelva a bloquear la vista
+        game.psi = psiGuardado;        //Detiene el desgaste de presión de llantas
+        game.agua = aguaGuardada;      //Detienne la pérdida de hidratación
+    }
     sJugador = sActual;
     int zonaNueva = (sActual < 210.0f) ? 0 : (sActual < 320.0f) ? 1 : (sActual < 415.0f) ? 2 : (sActual < 475.0f) ? 3 : 4;
     if (zonaNueva != zonaActual) { zonaActual = zonaNueva; zonaTimer = 4.0f; }
@@ -432,11 +450,18 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
         cameraMode = (cameraMode + 1) % 3;
     }
 
-    // ENTER: empezar. H: mostrar u ocultar la ayuda
-    if (key == GLFW_KEY_ENTER && action == GLFW_PRESS && enMenu) {
-        enMenu = false;
-        zonaActual = -1;      // para que salga el letrero de la primera zona
+    if (key == GLFW_KEY_ENTER && action == GLFW_PRESS) {
+        if (enMenu) {
+            enMenu = false;
+            zonaActual = -1;      //para que salga el letrero de la primera zona
+        }
+        else if (game.estado == STATUS_VICTORIA) {
+            game.estado = STATUS_JUGANDO;
+            modoExploracionTepoz = true; //activa el recorrido libre sin desgaste
+        }
     }
+
+    // ENTER: empezar. H: mostrar u ocultar la ayuda
     if (key == GLFW_KEY_H && action == GLFW_PRESS) {
         enMenu = !enMenu;
     }
@@ -459,6 +484,7 @@ void ResetToStart() {
     // Reinicia contadores de juego, presiones y coleccionables
     game.Reiniciar();
     zonaActual = -1;
+    modoExploracionTepoz = false;
 
     glm::vec3 f = player.GetFrontVector();
     float yaw = glm::degrees(std::atan2(f.z, f.x));

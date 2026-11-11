@@ -157,12 +157,14 @@
     <ClInclude Include="RiderPose.h" />
     <ClInclude Include="Ruta.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="TepoztlanScene.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CicloviaScene.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PlayerBike.cpp" />
     <ClCompile Include="PolancoScene.cpp" />
+    <ClCompile Include="TepoztlanScene.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
