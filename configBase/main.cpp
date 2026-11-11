@@ -14,6 +14,7 @@
 #include "Camera.h"
 #include "PlayerBike.h"
 #include "CicloviaScene.h"
+#include "PolancoScene.h"
 #include "GameLogic.h"
 #include "Ruta.h"
 #include "Skybox.h"
@@ -438,6 +439,11 @@ void DoMovement() {
         glm::vec2 right(std::cos(th), -std::sin(th));
         glm::vec2 delta(player.position.x - muestras[mejorIdx].pos.x, player.position.z - muestras[mejorIdx].pos.z);
         lateralActual = glm::dot(delta, right);
+        PolancoScene::riderS = sActual;
+        GameStatus estadoAnterior = game.estado;
+        float psiGuardado = game.psi;
+        float aguaGuardada = game.agua;
+        game.Actualizar(deltaTime, sActual, lateralActual, velocidadReal, 0.0f);
     }
 
     GameStatus estadoAnterior = game.estado;
