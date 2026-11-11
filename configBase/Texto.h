@@ -173,4 +173,29 @@ inline void Panel(float x, float y, float w, float h, glm::vec4 color, int ancho
     glBindVertexArray(0);
 }
 
+// Dibuja muchos cuadritos del mismo color de un solo golpe (para el minimapa).
+// Cada punto es el CENTRO del cuadrito; 'lado' es su tamano en pixeles.
+inline void Cuadros(const std::vector<glm::vec2>& puntos, float lado, glm::vec4 color,
+    int anchoPantalla, int altoPantalla)
+{
+    if (puntos.empty()) return;
+    std::vector<float> v;
+    v.reserve(puntos.size() * 12);
+    float h = lado * 0.5f;
+    for (const glm::vec2& p : puntos) {
+        float x0 = p.x - h, y0 = p.y - h, x1 = p.x + h, y1 = p.y + h;
+        float q[12] = { x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1 };
+        v.insert(v.end(), q, q + 12);
+    }
+    glUseProgram(programa);
+    glm::mat4 proj = glm::ortho(0.0f, (float)anchoPantalla, 0.0f, (float)altoPantalla);
+    glUniformMatrix4fv(glGetUniformLocation(programa, "projection"), 1, GL_FALSE, glm::value_ptr(proj));
+    glUniform4fv(glGetUniformLocation(programa, "uiColor"), 1, glm::value_ptr(color));
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, v.size() * sizeof(float), v.data(), GL_STREAM_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(v.size() / 2));
+    glBindVertexArray(0);
+}
+
 } // namespace Texto

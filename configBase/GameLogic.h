@@ -242,7 +242,7 @@ public:
             estado = STATUS_GAME_OVER_DESHIDRATACION;
             return 0.0f;
         }
-        if (sJugador >= 485.0f) {
+        if (sJugador >= 675.0f) {
             estado = STATUS_VICTORIA;
             return 0.0f;
         }

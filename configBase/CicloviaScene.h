@@ -4,6 +4,7 @@
 #include "Shader.h"
 #include "Model.h"
 #include "PolancoScene.h"
+#include <vector>
 
 class CicloviaScene {
 public:
@@ -30,6 +31,15 @@ public:
     // Aves (animacion por keyframes + trayectoria procedural)
     Model* aveModel;
     Model* semaforoModel;
+
+    // Tepoztlan (zona 3)
+    Model* letreroModel;
+    Model* kioscoModel;
+    Model* mercadoModel;
+    Model* casasModel;
+    Model* estacionModel;
+    Model* exconventoModel;
+
     void DrawSemaforos(Shader& shader, GLint modelLoc);
     void DrawAves(Shader& shader, GLint modelLoc);
 
@@ -45,6 +55,11 @@ public:
     GLuint terrainVAO, terrainVBO;
     GLuint aridVAO, aridVBO;
     int terrainCount;
+
+    // Copia de la malla del terreno, para colocar modelos exactamente sobre el suelo dibujado
+    std::vector<float> terrenoAlturas;
+    int terrenoNX = 0, terrenoNZ = 0;
+    float AlturaTerreno(float x, float z) const;
     int aridCount;
 
     // Pista: 0 Asfalto, 1 Raya amarilla, 2 Bordillos, 3 Terracería rústica

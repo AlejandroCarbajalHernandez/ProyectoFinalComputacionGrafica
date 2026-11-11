@@ -6,6 +6,7 @@
 #include <cmath>
 #include "Ruta.h"
 #include "AvesPose.h"
+#include "Semaforo.h"
 #include <algorithm>
 
 CicloviaScene::CicloviaScene() {
@@ -20,6 +21,13 @@ CicloviaScene::CicloviaScene() {
     building2Model = nullptr;
     aveModel = nullptr;
     semaforoModel = nullptr;
+
+    letreroModel = nullptr;
+    kioscoModel = nullptr;
+    mercadoModel = nullptr;
+    casasModel = nullptr;
+    estacionModel = nullptr;
+    exconventoModel = nullptr;
 
     huizacheModel = nullptr;
     nopalModel = nullptr;
@@ -69,6 +77,13 @@ CicloviaScene::~CicloviaScene() {
     delete aveModel;
     delete semaforoModel;
 
+    delete letreroModel;
+    delete kioscoModel;
+    delete mercadoModel;
+    delete casasModel;
+    delete estacionModel;
+    delete exconventoModel;
+
     delete perroModel;
     delete cabraModel;
     delete ovejaModel;
@@ -98,9 +113,16 @@ void CicloviaScene::Init() {
     gavillaModel = new Model((char*)"../assets/obj/Gavilla/Gavilla.obj");
     tepetateModel = new Model((char*)"../assets/obj/Tepetate/Tepetate.obj");
     torreModel = new Model((char*)"../assets/obj/torre-alta-tension/torre-alta-tension.obj");
-    aveModel = new Model((char*)"../assets/obj/bird.obj");
+    aveModel = new Model((char*)"../assets/obj/bird/bird.obj");
     aveModel->AssignBones(AvesPose::BoneForVertex);
     semaforoModel = new Model((char*)"../assets/obj/semaforo/semaforo.obj");
+
+    letreroModel = new Model((char*)"../assets/obj/LetreroTepoztlan/LetreroTepoztlan.obj");
+    kioscoModel = new Model((char*)"../assets/obj/Kiosco/Kiosco.obj");
+    mercadoModel = new Model((char*)"../assets/obj/MercadoMunicipal/MercadoMunicipal.obj");
+    casasModel = new Model((char*)"../assets/obj/Casas/Casas.obj");
+    estacionModel = new Model((char*)"../assets/obj/EstacionFerrocarril/EstacionFerrocarril.obj");
+    exconventoModel = new Model((char*)"../assets/obj/ExconventoTepoztlan/ExconventoTepoztlan.obj");
 
     // Fauna rural
     perroModel = new Model((char*)"../assets/obj/perro/perro.obj");
@@ -140,6 +162,9 @@ void CicloviaScene::Init() {
         }
     }
     terrainCount = (int)(ground.size() / 8);
+    terrenoAlturas = alturas;
+    terrenoNX = NX;
+    terrenoNZ = NZ;
 
     glGenVertexArrays(1, &terrainVAO);
     glGenBuffers(1, &terrainVBO);
@@ -393,12 +418,10 @@ void CicloviaScene::DrawAves(Shader& shader, GLint modelLoc) {
 void CicloviaScene::DrawSemaforos(Shader& shader, GLint modelLoc) {
     if (!semaforoModel) return;
 
-    // Ciclo: verde 6 s, ambar 2 s, rojo 6 s
-    const float T_VERDE = 6.0f, T_AMBAR = 2.0f, T_ROJO = 6.0f;
-    float ciclo = std::fmod((float)glfwGetTime(), T_VERDE + T_AMBAR + T_ROJO);
-    bool verde = ciclo < T_VERDE;
-    bool ambar = !verde && ciclo < T_VERDE + T_AMBAR;
-    bool rojo = !verde && !ambar;
+    Semaforo::Fase fase = Semaforo::FaseEn((float)glfwGetTime());
+    bool verde = (fase == Semaforo::VERDE);
+    bool ambar = (fase == Semaforo::AMBAR);
+    bool rojo = (fase == Semaforo::ROJO);
 
     // Encendida = color brillante, apagada = casi negra
     auto luz = [](bool on, glm::vec3 c) { return on ? c * 1.5f : c * 0.12f; };
@@ -406,7 +429,7 @@ void CicloviaScene::DrawSemaforos(Shader& shader, GLint modelLoc) {
     semaforoModel->SetColorMatching("Lente_Ambar", luz(ambar, glm::vec3(0.9f, 0.6f, 0.0f)));
     semaforoModel->SetColorMatching("Lente_Verde", luz(verde, glm::vec3(0.1f, 0.9f, 0.2f)));
 
-    const float posiciones[2] = { 55.0f, 190.0f };   // metros sobre la ruta (zona urbana)
+    const float* posiciones = Semaforo::POSICIONES;   // metros sobre la ruta (zona urbana)
     for (int i = 0; i < 2; i++) {
         Ruta::Muestra p = Ruta::En(posiciones[i]);
         float th = glm::radians(p.headingDeg);
@@ -428,7 +451,60 @@ void CicloviaScene::DrawUrbana(Shader& shader, GLint modelLoc) {
     DrawSemaforos(shader, modelLoc);
 }
 
+// Altura del terreno tal como se dibuja (misma malla de 4 m y misma triangulacion)
+float CicloviaScene::AlturaTerreno(float x, float z) const {
+    if (terrenoAlturas.empty()) return Ruta::AlturaSuelo(x, z) - 0.12f;
+    const float X0 = -300.0f, Z0 = -700.0f, PASO = 4.0f;
+    float fx = (x - X0) / PASO, fz = (z - Z0) / PASO;
+    int i = std::max(0, std::min(terrenoNX - 1, (int)std::floor(fx)));
+    int j = std::max(0, std::min(terrenoNZ - 1, (int)std::floor(fz)));
+    float u = std::max(0.0f, std::min(1.0f, fx - i));
+    float v = std::max(0.0f, std::min(1.0f, fz - j));
+    int W = terrenoNX + 1;
+    float h00 = terrenoAlturas[j * W + i], h10 = terrenoAlturas[j * W + i + 1];
+    float h01 = terrenoAlturas[(j + 1) * W + i], h11 = terrenoAlturas[(j + 1) * W + i + 1];
+    if (u >= v) return h00 + (h10 - h00) * u + (h11 - h10) * v;
+    return h00 + (h11 - h01) * u + (h01 - h00) * v;
+}
+
+
 void CicloviaScene::DrawPueblo(Shader& shader, GLint modelLoc) {
+    // Coloca un modelo junto a la ruta.
+    // s = metro de la ruta, lado = distancia lateral (+ derecha, - izquierda),
+    // giroExtra = grados sobre el rumbo de la ruta, radio = mitad del tamano aproximado del edificio (m),
+    // avance = metros hacia adelante
+    auto colocar = [&](Model* m, float s, float lado, float giroExtra, float escala, float radio, float avance = 0.0f) {
+        if (!m) return;
+        Ruta::Muestra p = Ruta::En(s);
+        float th = glm::radians(p.headingDeg);
+        glm::vec3 der(std::cos(th), 0.0f, -std::sin(th));
+        glm::vec3 fre(-std::sin(th), 0.0f, -std::cos(th));
+        glm::vec3 pos = p.pos + der * lado + fre * avance;
+
+        // Altura del suelo: el punto mas bajo de la huella, para que no flote
+        float suelo = 1e9f;
+        for (int a = -1; a <= 1; a++)
+            for (int b = -1; b <= 1; b++) {
+                glm::vec3 q = pos + fre * (a * radio) + der * (b * radio);
+                suelo = std::min(suelo, AlturaTerreno(q.x, q.z));
+            }
+        pos.y = suelo - 0.03f;
+
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, pos);
+        model = glm::rotate(model, th + glm::radians(giroExtra), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(escala));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        m->Draw(shader);
+        };
+
+    colocar(letreroModel, 482.0f, 14.0f, 0.0f, 0.7f, 9.0f);   // letrero de bienvenida
+    colocar(casasModel, 495.0f, -5.0f, 0.0f, 0.8f, 12.0f);   // casas, izquierda
+    colocar(estacionModel, 570.0f, 6.0f, 0.0f, 0.8f, 12.0f);   // estacion, derecha
+    colocar(kioscoModel, 570.0f, -10.0f, 0.0f, 0.6f, 5.0f);   // kiosco, izquierda
+    colocar(casasModel, 665.0f, -5.0f, 0.0f, 0.8f, 12.0f);   // casas, izquierda
+    colocar(mercadoModel, 665.0f, 12.5f, -90.0f, 0.7f, 10.0f);   // mercado, derecha
+    colocar(exconventoModel, 684.0f, 0.0f, 0.0f, 0.8f, 12.0f, 17.6f);   // exconvento al final de la ruta
 }
 
 void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
