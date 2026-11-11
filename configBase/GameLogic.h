@@ -53,7 +53,6 @@ public:
     float alertaDanioTimer;
     bool inflandoActualmente;
 
-    // Buffer de geometría 3D unitaria
     GLuint itemVAO = 0;
     GLuint itemVBO = 0;
 
@@ -66,10 +65,8 @@ public:
         if (itemVBO) glDeleteBuffers(1, &itemVBO);
     }
 
-    // Inicializa la geometría en la GPU (debe llamarse después de glewInit)
     void Init() {
         float vertices[] = {
-            // Posición (x,y,z)       Normales (nx,ny,nz)   UV (u,v)
             // Cara Frontal
             -0.5f, -0.5f,  0.5f,      0.0f,  0.0f,  1.0f,   0.0f, 0.0f,
              0.5f, -0.5f,  0.5f,      0.0f,  0.0f,  1.0f,   1.0f, 0.0f,
@@ -103,20 +100,20 @@ public:
              0.5f, -0.5f,  0.5f,      1.0f,  0.0f,  0.0f,   0.0f, 0.0f,
 
              // Cara Inferior
-             -0.5f, -0.5f, -0.5f,      0.0f, -1.0f,  0.0f,   0.0f, 1.0f,
-              0.5f, -0.5f, -0.5f,      0.0f, -1.0f,  0.0f,   1.0f, 1.0f,
-              0.5f, -0.5f,  0.5f,      0.0f, -1.0f,  0.0f,   1.0f, 0.0f,
-              0.5f, -0.5f,  0.5f,      0.0f, -1.0f,  0.0f,   1.0f, 0.0f,
-             -0.5f, -0.5f,  0.5f,      0.0f, -1.0f,  0.0f,   0.0f, 0.0f,
-             -0.5f, -0.5f, -0.5f,      0.0f, -1.0f,  0.0f,   0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,      0.0f, -1.0f,  0.0f,   0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,      0.0f, -1.0f,  0.0f,   1.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,      0.0f, -1.0f,  0.0f,   1.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,      0.0f, -1.0f,  0.0f,   1.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,      0.0f, -1.0f,  0.0f,   0.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f,      0.0f, -1.0f,  0.0f,   0.0f, 1.0f,
 
-             // Cara Superior
-             -0.5f,  0.5f, -0.5f,      0.0f,  1.0f,  0.0f,   0.0f, 1.0f,
-              0.5f,  0.5f,  0.5f,      0.0f,  1.0f,  0.0f,   1.0f, 0.0f,
-              0.5f,  0.5f, -0.5f,      0.0f,  1.0f,  0.0f,   1.0f, 1.0f,
-              0.5f,  0.5f,  0.5f,      0.0f,  1.0f,  0.0f,   1.0f, 0.0f,
-             -0.5f,  0.5f, -0.5f,      0.0f,  1.0f,  0.0f,   0.0f, 1.0f,
-             -0.5f,  0.5f,  0.5f,      0.0f,  1.0f,  0.0f,   0.0f, 0.0f
+            // Cara Superior
+           -0.5f,  0.5f, -0.5f,      0.0f,  1.0f,  0.0f,   0.0f, 1.0f,
+            0.5f,  0.5f,  0.5f,      0.0f,  1.0f,  0.0f,   1.0f, 0.0f,
+            0.5f,  0.5f, -0.5f,      0.0f,  1.0f,  0.0f,   1.0f, 1.0f,
+            0.5f,  0.5f,  0.5f,      0.0f,  1.0f,  0.0f,   1.0f, 0.0f,
+           -0.5f,  0.5f, -0.5f,      0.0f,  1.0f,  0.0f,   0.0f, 1.0f,
+           -0.5f,  0.5f,  0.5f,      0.0f,  1.0f,  0.0f,   0.0f, 0.0f
         };
 
         glGenVertexArrays(1, &itemVAO);
@@ -148,7 +145,7 @@ public:
         clavos.clear();
         talleres.clear();
 
-        // 1. Ánforas de agua (visibles sobre la ciclovía)
+        // 1. Ánforas de agua
         anforas.push_back({ 25.0f,  0.3f, false });
         anforas.push_back({ 75.0f, -0.4f, false });
         anforas.push_back({ 150.0f,  0.4f, false });
@@ -164,7 +161,7 @@ public:
         clavos.push_back({ 340.0f, -0.2f, false });
         clavos.push_back({ 400.0f,  0.3f, false });
 
-        // 3. Estaciones de inflado (en la orilla del camino)
+        // 3. Estaciones de inflado
         talleres.push_back({ 90.0f,  1.7f, true });
         talleres.push_back({ 200.0f, -1.7f, true });
         talleres.push_back({ 350.0f,  1.8f, true });
@@ -242,7 +239,10 @@ public:
             estado = STATUS_GAME_OVER_DESHIDRATACION;
             return 0.0f;
         }
-        if (sJugador >= 485.0f) {
+
+        // Candado original para Tepoztlán
+        bool enCalleTepoztlan = std::abs(lateralJugador) <= 2.2f;
+        if (sJugador >= 480.0f && enCalleTepoztlan) {
             estado = STATUS_VICTORIA;
             return 0.0f;
         }
@@ -250,14 +250,6 @@ public:
         if (psi < 12.0f) return 0.40f;
         if (psi < 22.0f) return 0.70f;
         return 1.0f;
-
-        // CANDADO DE TEPOZTLÁN:
-        // Solo ganas si llegas al final Y estás físicamente sobre la calle/camino (lateral <= 2.2m)
-        bool enCalleTepoztlan = std::abs(lateralJugador) <= 2.2f;
-        if (sJugador >= 480.0f && enCalleTepoztlan) {
-            estado = STATUS_VICTORIA;
-            return 0.0f;
-        }
     }
 
     void DrawEntidades(Shader& shader, GLint modelLoc) {
@@ -276,7 +268,7 @@ public:
         glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
         glBindVertexArray(itemVAO);
 
-        // 1. Ánforas de agua (Cajas azules flotantes que giran en el centro)
+        // 1. Ánforas de agua
         for (const auto& anf : anforas) {
             if (!anf.recogida) {
                 glm::vec3 p = getCoord(anf.s, anf.lateral);
@@ -286,15 +278,15 @@ public:
                 glm::mat4 m = glm::mat4(1.0f);
                 m = glm::translate(m, p);
                 m = glm::rotate(m, t * 2.5f, glm::vec3(0.0f, 1.0f, 0.0f));
-                m = glm::scale(m, glm::vec3(0.24f, 0.45f, 0.24f)); // Dimensiones de botella
+                m = glm::scale(m, glm::vec3(0.24f, 0.45f, 0.24f));
 
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m));
-                glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.10f, 0.65f, 0.95f); // Azul cian
+                glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.10f, 0.65f, 0.95f);
                 glDrawArrays(GL_TRIANGLES, 0, 36);
             }
         }
 
-        // 2. Clavos / Trampas en el piso (Cuadros rojos aplanados en el asfalto)
+        // 2. Clavos / Trampas
         for (const auto& cl : clavos) {
             if (!cl.activado) {
                 glm::vec3 p = getCoord(cl.s, cl.lateral);
@@ -305,22 +297,22 @@ public:
                 m = glm::scale(m, glm::vec3(0.35f, 0.05f, 0.35f));
 
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m));
-                glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.90f, 0.10f, 0.10f); // Rojo peligro
+                glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.90f, 0.10f, 0.10f);
                 glDrawArrays(GL_TRIANGLES, 0, 36);
             }
         }
 
-        // 3. Estaciones de inflado (Tótems amarillos en la orilla)
+        // 3. Estaciones de inflado
         for (const auto& tal : talleres) {
             glm::vec3 p = getCoord(tal.s, tal.lateral);
             p.y += 0.70f;
 
             glm::mat4 m = glm::mat4(1.0f);
             m = glm::translate(m, p);
-            m = glm::scale(m, glm::vec3(0.35f, 1.40f, 0.35f)); // Poste visible
+            m = glm::scale(m, glm::vec3(0.35f, 1.40f, 0.35f));
 
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m));
-            glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.95f, 0.85f, 0.10f); // Amarillo bomba
+            glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.95f, 0.85f, 0.10f);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 

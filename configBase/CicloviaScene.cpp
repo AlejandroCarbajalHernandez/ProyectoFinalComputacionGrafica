@@ -6,6 +6,7 @@
 #include <cmath>
 #include "Ruta.h"
 #include "AvesPose.h"
+#include "Semaforo.h"
 #include <algorithm>
 
 CicloviaScene::CicloviaScene() {
@@ -113,9 +114,11 @@ void CicloviaScene::Init() {
     const int NX = (int)((X1 - X0) / PASO_T), NZ = (int)((Z1 - Z0) / PASO_T);
 
     std::vector<float> alturas((NX + 1) * (NZ + 1));
-    for (int j = 0; j <= NZ; j++)
-        for (int i = 0; i <= NX; i++)
+    for (int j = 0; j <= NZ; j++) {
+        for (int i = 0; i <= NX; i++) {
             alturas[j * (NX + 1) + i] = Ruta::AlturaSuelo(X0 + i * PASO_T, Z0 + j * PASO_T) - 0.12f;
+        }
+    }
 
     auto H = [&](int i, int j) {
         i = std::max(0, std::min(NX, i));
@@ -166,6 +169,7 @@ void CicloviaScene::Init() {
     polanco.worldMatrix = w;
     polanco.Init();
 
+    // Tepoztlán original intacto
     Ruta::Muestra pTepoz = Ruta::En(475.0f);
     glm::mat4 wTepoz(1.0f);
     wTepoz = glm::translate(wTepoz, pTepoz.pos);
@@ -174,7 +178,6 @@ void CicloviaScene::Init() {
     tepoztlan.Init();
 }
 
-// Manto árido estrictamente entre 320 y 415 m (deja verde el resto hacia Tepoztlán)
 void CicloviaScene::BuildAridTerrain() {
     std::vector<float> aridVerts;
     const float S_INICIO_ARIDO = 320.0f;
@@ -233,7 +236,6 @@ void CicloviaScene::BuildAridTerrain() {
     glBindVertexArray(0);
 }
 
-// Construye Asfalto (0-415 m) y Terracería rústica (415-475 m)
 void CicloviaScene::BuildRoad() {
     std::vector<float> asfalto, linea, bordillo, terraceria;
 
@@ -269,17 +271,14 @@ void CicloviaScene::BuildRoad() {
         glm::vec3 Lb = b.pos - rb * wb, Rb = b.pos + rb * wb;
 
         if (a.s < S_CORTE_TERRACERIA) {
-            // Asfalto
             quad(asfalto, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista);
 
-            // Raya amarilla central
             if (std::fmod(a.s, 3.0f) < 1.5f) {
                 float h = 0.06f;
                 quad(linea, a.pos - ra * h + up * (yPista + 0.01f), a.pos + ra * h + up * (yPista + 0.01f),
                     b.pos + rb * h + up * (yPista + 0.01f), b.pos - rb * h + up * (yPista + 0.01f));
             }
 
-            // Bordillos de concreto
             for (int lado = -1; lado <= 1; lado += 2) {
                 glm::vec3 ea = a.pos + ra * (wa * lado), eb = b.pos + rb * (wb * lado);
                 glm::vec3 oa = ea + ra * (anchoBordillo * lado), ob = eb + rb * (anchoBordillo * lado);
@@ -288,16 +287,15 @@ void CicloviaScene::BuildRoad() {
             }
         }
         else {
-            // Terracería rústica (sin bordillo ni raya)
             quad(terraceria, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista);
         }
     }
 
     std::vector<float> todo;
-    roadStart[0] = 0;                                           roadCount[0] = (int)(asfalto.size() / 8);
-    roadStart[1] = roadCount[0];                                roadCount[1] = (int)(linea.size() / 8);
-    roadStart[2] = roadStart[1] + roadCount[1];                 roadCount[2] = (int)(bordillo.size() / 8);
-    roadStart[3] = roadStart[2] + roadCount[2];                 roadCount[3] = (int)(terraceria.size() / 8);
+    roadStart[0] = 0;                                               roadCount[0] = (int)(asfalto.size() / 8);
+    roadStart[1] = roadCount[0];                                    roadCount[1] = (int)(linea.size() / 8);
+    roadStart[2] = roadStart[1] + roadCount[1];                     roadCount[2] = (int)(bordillo.size() / 8);
+    roadStart[3] = roadStart[2] + roadCount[2];                     roadCount[3] = (int)(terraceria.size() / 8);
 
     todo.insert(todo.end(), asfalto.begin(), asfalto.end());
     todo.insert(todo.end(), linea.begin(), linea.end());
@@ -321,7 +319,7 @@ void CicloviaScene::BuildRoad() {
 void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
 
-    // 1. Suelo base: Verde monte
+    // 1. Suelo base
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.35f, 0.44f, 0.20f);
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
@@ -329,13 +327,13 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glDrawArrays(GL_TRIANGLES, 0, terrainCount);
     glBindVertexArray(0);
 
-    // 2. Manto árido: Color tepetate (320 a 415 m)
+    // 2. Manto árido
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.62f, 0.50f, 0.33f);
     glBindVertexArray(aridVAO);
     glDrawArrays(GL_TRIANGLES, 0, aridCount);
     glBindVertexArray(0);
 
-    // 3. Pista segmentada
+    // 3. Pista
     model = glm::mat4(1.0f);
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(roadVAO);
@@ -354,7 +352,6 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
 
     glBindVertexArray(0);
 
-    // Restaurar texturas / colores MTL de los modelos OBJ
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
 
     DrawUrbana(shader, modelLoc);
@@ -362,33 +359,32 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     DrawPueblo(shader, modelLoc);
     DrawAves(shader, modelLoc);
 }
+
 void CicloviaScene::DrawAves(Shader& shader, GLint modelLoc) {
     float t = (float)glfwGetTime();
 
-    // Centro del vuelo: sobre el eje de la ruta en plena zona rural
     glm::vec3 c = Ruta::En(340.0f).pos;
     c.y = Ruta::AlturaSuelo(c.x, c.z) + 12.0f;
 
     glUniform1i(glGetUniformLocation(shader.Program, "useBones"), 1);
 
     for (int i = 0; i < 3; i++) {
-        float fase = i * 2.094f;                    // 120 grados entre aves
-        float a = t * 0.35f + fase;                 // angulo en la circunferencia
+        float fase = i * 2.094f;
+        float a = t * 0.35f + fase;
         float radio = 18.0f + i * 5.0f;
         glm::vec3 p = c + glm::vec3(radio * cosf(a), 1.5f * sinf(t * 0.9f + fase), radio * sinf(a));
 
-        // El ave mira hacia -z; theta = pi - a la orienta con la tangente del circulo
         float theta = glm::pi<float>() - a;
         glm::mat4 m(1.0f);
         m = glm::translate(m, p);
         m = glm::rotate(m, theta, glm::vec3(0, 1, 0));
-        m = glm::rotate(m, glm::radians(-12.0f), glm::vec3(0, 0, 1));   // inclinacion en la curva
+        m = glm::rotate(m, glm::radians(-12.0f), glm::vec3(0, 0, 1));
         m = glm::scale(m, glm::vec3(0.12f));
         m = glm::translate(m, glm::vec3(-AvesPose::CX, -AvesPose::BISAGRA_Y, -AvesPose::BISAGRA_Z));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m));
 
         glm::mat4 bones[AvesPose::BONE_COUNT];
-        AvesPose::Compute(t + fase, bones);          // cada ave con su propio desfase de aleteo
+        AvesPose::Compute(t + fase, bones);
         glUniformMatrix4fv(glGetUniformLocation(shader.Program, "bones"), AvesPose::BONE_COUNT, GL_FALSE, glm::value_ptr(bones[0]));
 
         aveModel->Draw(shader);
@@ -396,35 +392,31 @@ void CicloviaScene::DrawAves(Shader& shader, GLint modelLoc) {
     glUniform1i(glGetUniformLocation(shader.Program, "useBones"), 0);
 }
 
-
 void CicloviaScene::DrawSemaforos(Shader& shader, GLint modelLoc) {
     if (!semaforoModel) return;
 
-    // Ciclo: verde 6 s, ambar 2 s, rojo 6 s
-    const float T_VERDE = 6.0f, T_AMBAR = 2.0f, T_ROJO = 6.0f;
-    float ciclo = std::fmod((float)glfwGetTime(), T_VERDE + T_AMBAR + T_ROJO);
-    bool verde = ciclo < T_VERDE;
-    bool ambar = !verde && ciclo < T_VERDE + T_AMBAR;
-    bool rojo = !verde && !ambar;
+    Semaforo::Fase fase = Semaforo::FaseEn((float)glfwGetTime());
+    bool verde = (fase == Semaforo::VERDE);
+    bool ambar = (fase == Semaforo::AMBAR);
+    bool rojo = (fase == Semaforo::ROJO);
 
-    // Encendida = color brillante, apagada = casi negra
     auto luz = [](bool on, glm::vec3 c) { return on ? c * 1.5f : c * 0.12f; };
     semaforoModel->SetColorMatching("Lente_Rojo", luz(rojo, glm::vec3(0.9f, 0.1f, 0.1f)));
     semaforoModel->SetColorMatching("Lente_Ambar", luz(ambar, glm::vec3(0.9f, 0.6f, 0.0f)));
     semaforoModel->SetColorMatching("Lente_Verde", luz(verde, glm::vec3(0.1f, 0.9f, 0.2f)));
 
-    const float posiciones[2] = { 55.0f, 190.0f };   // metros sobre la ruta (zona urbana)
+    const float* posiciones = Semaforo::POSICIONES;
     for (int i = 0; i < 2; i++) {
         Ruta::Muestra p = Ruta::En(posiciones[i]);
         float th = glm::radians(p.headingDeg);
-        glm::vec3 pos = p.pos + glm::vec3(std::cos(th), 0.0f, -std::sin(th)) * 3.2f;   // a la derecha de la pista
+        glm::vec3 pos = p.pos + glm::vec3(std::cos(th), 0.0f, -std::sin(th)) * 3.2f;
         pos.y = Ruta::AlturaSuelo(pos.x, pos.z);
 
         glm::mat4 m(1.0f);
         m = glm::translate(m, pos);
-        m = glm::rotate(m, glm::radians(p.headingDeg + 180.0f), glm::vec3(0, 1, 0));   // las luces miran al ciclista
+        m = glm::rotate(m, glm::radians(p.headingDeg + 180.0f), glm::vec3(0, 1, 0));
         m = glm::scale(m, glm::vec3(1.4f));
-        m = glm::translate(m, glm::vec3(2.2f, 0.0f, 0.0f));                           // el poste del modelo esta en x = -2.2
+        m = glm::translate(m, glm::vec3(2.2f, 0.0f, 0.0f));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(m));
         semaforoModel->Draw(shader);
     }
@@ -435,6 +427,7 @@ void CicloviaScene::DrawUrbana(Shader& shader, GLint modelLoc) {
     DrawSemaforos(shader, modelLoc);
 }
 
+// Mantener la escena original de Tepoztlán
 void CicloviaScene::DrawPueblo(Shader& shader, GLint modelLoc) {
     tepoztlan.Draw(shader, modelLoc);
 }
@@ -446,12 +439,9 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
 {
     if (!m) return;
 
-    // 1. Dibuja el cuerpo y cabeza excluyendo las patas con 3 argumentos exactos:
-    // (Shader, primer filtro, segundo filtro)
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(root));
     m->DrawExcluding(shader, "Pata_D", "Pata_T");
 
-    // 2. Ángulos de oscilación diagonal cruzada
     float angDI = std::sin(walkPhase) * ampDeg;
     float angTD = std::sin(walkPhase) * (ampDeg * 0.90f);
     float angDD = -std::sin(walkPhase) * ampDeg;
@@ -470,7 +460,6 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
         { "Pata_TD", angTD, xCadera }
     };
 
-    // 3. Renderizado de cada extremidad
     for (int p = 0; p < 4; p++) {
         glm::mat4 mPata = root;
         mPata = glm::translate(mPata, glm::vec3(patas[p].xPivot, yCadera, 0.0f));
@@ -482,18 +471,13 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
     }
 }
 
-// ==============================================================================
-// E2: Recorrido Rural (210 a 475 m)
-// - Distribución estratificada por franjas (CERO solapamientos)
-// - Fauna con ciclo realista: CAMINA SIEMPRE ADELANTE -> SE DETIENE A PASTAR -> GIRA -> CAMINA
-// ==============================================================================
 void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
     const float INICIO_E2 = 210.0f;
     const float FIN_BOSQUE = 320.0f;
     const float INICIO_ARIDO = 320.0f;
-    const float FIN_ARIDO = 415.0f; // Fin exacto del bioma árido
-    const float FIN_E2 = 475.0f; // Cota de 26 m de altura
+    const float FIN_ARIDO = 415.0f;
+    const float FIN_E2 = 475.0f;
 
     auto punto = [](float s, float lado) {
         Ruta::Muestra p = Ruta::En(s);
@@ -508,9 +492,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         return x - std::floor(x);
         };
 
-    // -------------------------------------------------------------------------
-    // 1. BOSQUE DE OCOTES Y ARBUSTOS (210 a 320 m)
-    // -------------------------------------------------------------------------
+    // 1. Bosque de Ocotes y Arbustos
     if (treeModel) {
         int k = 0;
         for (float s = INICIO_E2 + 5.0f; s < FIN_BOSQUE; s += 8.0f, k++) {
@@ -551,16 +533,13 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 2. BIOMA ÁRIDO (320 a 415 m) SIN SOLAPAMIENTOS
-    // -------------------------------------------------------------------------
+    // 2. Bioma Árido (320 a 415 m)
     int slot = 0;
     for (float s = INICIO_ARIDO + 3.0f; s < FIN_ARIDO; s += 5.5f, slot++) {
         for (int L = 0; L < 2; L++) {
             int sem = slot * 2 + L;
             float signo = (L == 0 ? 1.0f : -1.0f);
 
-            // FRANJA MEDIA (7.0 m a 12.0 m): Huizache o Maguey
             if (slot % 2 == 0) {
                 if (huizacheModel) {
                     float dist = 7.5f + azar(sem + 100) * 4.5f;
@@ -586,7 +565,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 }
             }
 
-            // FRANJA CORTA (4.2 m a 6.2 m): Nopal o Tepetate
             if (slot % 2 == 0) {
                 if (nopalModel) {
                     float dist = 4.8f + azar(sem + 300) * 1.6f;
@@ -612,7 +590,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 }
             }
 
-            // Zacatón de relleno
             if (zacatonModel) {
                 float distZ = 4.0f + azar(sem + 600) * 3.5f;
                 glm::vec3 pZ = punto(s + 1.2f, signo * distZ);
@@ -651,15 +628,12 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 3. FAUNA NATURAL CON CICLO: AVANCE FORWARD -> DETENCIÓN -> GIRO EN LUGAR
-    // -------------------------------------------------------------------------
+    // 3. Fauna Natural Cuadrúpeda
     float t = (float)glfwGetTime();
     const float S_REBANO = 370.0f;
     Ruta::Muestra pMuestra = Ruta::En(S_REBANO);
     float rumboBase = pMuestra.headingDeg;
 
-    // Estructura de cinemática natural determinista
     struct CinemataCuadrupedo {
         glm::vec2 offsetActual;
         float anguloGiroDeg;
@@ -669,12 +643,10 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         float pastoreoPitch;
     };
 
-    // Función que calcula el comportamiento paso a paso en bucle cerrado
     auto calcularPasoNatural = [&](float tGlobal, float durPaso, float durPausa, float durGiro,
         float velFrec, float radioS, float radioL, float fOffset)
         {
             CinemataCuadrupedo res;
-            // 4 waypoints que forman un cuadrilátero de pastoreo seguro
             const glm::vec2 wp[4] = {
                 glm::vec2(0.0f,    0.0f),
                 glm::vec2(radioS,  radioL),
@@ -695,7 +667,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             glm::vec2 B = wp[iSig];
             glm::vec2 delta = B - A;
 
-            // Dirección angular natural hacia donde camina (en grados respecto a la ruta)
             float anguloHaciaB = glm::degrees(std::atan2(-delta.y, delta.x));
 
             int iSig2 = (tramo + 2) % 4;
@@ -704,7 +675,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             float anguloHaciaC = glm::degrees(std::atan2(-deltaSig.y, deltaSig.x));
 
             if (tau < durPaso) {
-                // FASE 1: CAMINATA ESTRICTAMENTE HACIA ADELANTE
                 float u = tau / durPaso;
                 res.offsetActual = A + delta * u;
                 res.anguloGiroDeg = anguloHaciaB;
@@ -714,30 +684,25 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 res.pastoreoPitch = 0.0f;
             }
             else if (tau < durPaso + durPausa) {
-                // FASE 2: DETENIDO EN EL LUGAR (PASTANDO CON PATAS QUIETAS)
                 float tPausa = tau - durPaso;
                 res.offsetActual = B;
                 res.anguloGiroDeg = anguloHaciaB;
                 res.walkPhase = 0.0f;
-                res.ampPatas = 0.0f; // Patitas firmes en el suelo sin moverse
+                res.ampPatas = 0.0f;
                 res.bobbingY = 0.0f;
-                // Cabeceo lento simulando que come hierba del suelo
                 res.pastoreoPitch = std::sin(tPausa * 2.5f) * 4.5f;
             }
             else {
-                // FASE 3: GIRO SUAVE EN EL LUGAR HACIA LA NUEVA DIRECCIÓN
                 float tGiro = tau - (durPaso + durPausa);
                 float uGiro = tGiro / durGiro;
                 float factorSuave = uGiro * uGiro * (3.0f - 2.0f * uGiro);
 
-                // Interpolación angular continua
                 float diff = anguloHaciaC - anguloHaciaB;
                 while (diff > 180.0f)  diff -= 360.0f;
                 while (diff < -180.0f) diff += 360.0f;
 
                 res.offsetActual = B;
                 res.anguloGiroDeg = anguloHaciaB + diff * factorSuave;
-                // Pasitos muy cortos para reacomodar las patas durante el giro
                 res.walkPhase = tGiro * 5.0f;
                 res.ampPatas = 8.0f;
                 res.bobbingY = std::abs(std::sin(res.walkPhase)) * 0.008f;
@@ -747,7 +712,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             return res;
         };
 
-    // A. CABRAS / CHIVOS (Paso rápido, pausa ágil y giro de exploración)
     if (cabraModel) {
         const struct { float ds; float lateral; float fOff; } cbData[] = {
             { -3.5f,  6.2f, 0.0f },
@@ -757,23 +721,19 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         };
 
         for (const auto& cb : cbData) {
-            // Camina 2.2 s, se detiene a pastar 2.0 s, gira 0.8 s
             CinemataCuadrupedo c = calcularPasoNatural(t, 2.2f, 2.0f, 0.8f, 7.5f, 1.2f, 0.6f, cb.fOff);
-
             glm::vec3 p = punto(S_REBANO + cb.ds + c.offsetActual.x, cb.lateral + c.offsetActual.y);
             p.y += c.bobbingY;
 
             model = glm::mat4(1.0f);
             model = glm::translate(model, p);
             model = glm::rotate(model, glm::radians(rumboBase + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(c.pastoreoPitch), glm::vec3(0.0f, 0.0f, 1.0f)); // Cabeceo
+            model = glm::rotate(model, glm::radians(c.pastoreoPitch), glm::vec3(0.0f, 0.0f, 1.0f));
 
-            // Articulación de patas con parámetros exactos de Blender
             DrawCuadrupedo(cabraModel, shader, modelLoc, model, c.walkPhase, 0.24f, -0.26f, 0.63f, c.ampPatas);
         }
     }
 
-    // B. OVEJAS / BORREGOS (Paso calmo, pausas largas de pastoreo en grupo)
     if (ovejaModel) {
         const struct { float ds; float lateral; float fOff; } ovData[] = {
             { -4.0f,  4.5f,  0.5f }, { -2.5f,  5.2f,  3.7f },
@@ -783,9 +743,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         };
 
         for (const auto& ov : ovData) {
-            // Camina 2.5 s, se detiene a pastar 3.0 s, gira 1.0 s
             CinemataCuadrupedo c = calcularPasoNatural(t, 2.5f, 3.0f, 1.0f, 6.2f, 0.9f, 0.45f, ov.fOff);
-
             glm::vec3 p = punto(S_REBANO + ov.ds + c.offsetActual.x, ov.lateral + c.offsetActual.y);
             p.y += c.bobbingY;
 
@@ -798,11 +756,8 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // C. CABALLO CASTAÑO (Zancada pausada, se detiene e impone presencia)
     if (caballoModel) {
-        // Camina 3.0 s, se detiene calmo 3.5 s, gira 1.2 s
         CinemataCuadrupedo c = calcularPasoNatural(t, 3.0f, 3.5f, 1.2f, 5.0f, 1.6f, 0.7f, 0.0f);
-
         glm::vec3 p = punto(S_REBANO + 6.5f + c.offsetActual.x, 5.4f + c.offsetActual.y);
         p.y += c.bobbingY;
 
@@ -814,11 +769,8 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         DrawCuadrupedo(caballoModel, shader, modelLoc, model, c.walkPhase, 0.50f, -0.52f, 1.28f, c.ampPatas);
     }
 
-    // D. PERROS PASTORES (Patrullaje dinámico y perro en guardia vigilante)
     if (perroModel) {
-        // Perro 1: Patrullaje activo en forma de romboide
         CinemataCuadrupedo c = calcularPasoNatural(t, 2.0f, 1.2f, 0.6f, 11.0f, 1.5f, 0.8f, 1.5f);
-
         glm::vec3 pP1 = punto(S_REBANO - 5.5f + c.offsetActual.x, 4.4f + c.offsetActual.y);
         pP1.y += c.bobbingY;
 
@@ -828,7 +780,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
 
         DrawCuadrupedo(perroModel, shader, modelLoc, model, c.walkPhase, 0.18f, -0.18f, 0.35f, c.ampPatas);
 
-        // Perro 2: En guardia vigilando el camino desde el flanco izquierdo
         glm::vec3 pP2 = punto(S_REBANO + 2.5f, -4.6f);
         float respiroP2 = 1.0f + std::sin(t * 3.5f) * 0.02f;
 
@@ -837,7 +788,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         model = glm::rotate(model, glm::radians(rumboBase + 45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(1.0f, respiroP2, 1.0f));
 
-        // Patas inmóviles (ampDeg = 0)
         DrawCuadrupedo(perroModel, shader, modelLoc, model, 0.0f, 0.18f, -0.18f, 0.35f, 0.0f);
     }
 }

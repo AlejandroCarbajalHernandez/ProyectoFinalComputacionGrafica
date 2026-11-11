@@ -156,8 +156,10 @@
     <ClInclude Include="PolancoScene.h" />
     <ClInclude Include="RiderPose.h" />
     <ClInclude Include="Ruta.h" />
+    <ClInclude Include="semaforo.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="TepoztlanScene.h" />
+    <ClInclude Include="Texto.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CicloviaScene.cpp" />
