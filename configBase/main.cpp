@@ -197,6 +197,15 @@ int main() {
 
         glUniform3f(glGetUniformLocation(lightingShader.Program, "viewPos"), eyePos.x, eyePos.y, eyePos.z);
 
+        // Niebla del bosque (transición suave)
+        auto suave = [](float a, float b, float x) {
+            float t = glm::clamp((x - a) / (b - a), 0.0f, 1.0f);
+            return t * t * (3.0f - 2.0f * t);
+            };
+        float factorNiebla = suave(205.0f, 222.0f, sJugador) * (1.0f - suave(285.0f, 318.0f, sJugador));
+        glUniform1f(glGetUniformLocation(lightingShader.Program, "nieblaDensidad"), 0.022f * factorNiebla);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "nieblaColor"), 0.72f, 0.78f, 0.80f);
+
         GLint modelLoc = glGetUniformLocation(lightingShader.Program, "model");
         GLint viewLoc = glGetUniformLocation(lightingShader.Program, "view");
         GLint projLoc = glGetUniformLocation(lightingShader.Program, "projection");
@@ -254,7 +263,6 @@ int main() {
                 + "  MULTAS: " + std::to_string(multasSemaforo),
                 32.0f, H - 92.0f, 2.0f, BLANCO, W, H);
 
-            // Aviso grande de multa
             if (avisoTimer > 0.0f && game.estado == STATUS_JUGANDO) {
                 centrado(avisoTexto, H * 0.45f, 4.0f, glm::vec4(1.0f, 0.3f, 0.3f, std::min(1.0f, avisoTimer)));
             }
@@ -440,10 +448,8 @@ void DoMovement() {
         lateralActual = glm::dot(delta, right);
     }
 
-    // Le pasa la posición al cruce de Polanco
     PolancoScene::riderS = sActual;
 
-    // Actualiza la física y el estado del juego una sola vez por cuadro
     GameStatus estadoAnterior = game.estado;
     float psiGuardado = game.psi;
     float aguaGuardada = game.agua;
@@ -458,7 +464,7 @@ void DoMovement() {
 
     sJugador = sActual;
 
-    // Multas de semáforo al cruzar en rojo
+    // Multas de semáforo
     static float sAnterior = 0.0f;
     if (game.estado == STATUS_JUGANDO && !modoExploracionTepoz) {
         for (float sSem : Semaforo::POSICIONES) {
@@ -494,7 +500,6 @@ void DoMovement() {
         }
     }
 
-    // Controles y Piloto Automático
     if (game.estado == STATUS_GAME_OVER_PONCHADURA || game.estado == STATUS_GAME_OVER_DESHIDRATACION) {
         // Bloqueado
     }
@@ -726,4 +731,4 @@ void RenderHUD(float psi, float maxPsi, float agua, float maxAgua, int screenWid
 
     glBindVertexArray(0);
     glEnable(GL_DEPTH_TEST);
-} 
+}

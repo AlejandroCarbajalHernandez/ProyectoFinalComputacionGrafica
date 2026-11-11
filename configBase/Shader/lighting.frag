@@ -54,6 +54,12 @@ uniform Material material;
 uniform int  useColor;
 uniform vec3 meshColor;
 
+// Brillo propio (para las luces del semaforo)
+uniform vec3 emissive;
+
+// Niebla del bosque (PR Octavio)
+uniform float nieblaDensidad;
+uniform vec3 nieblaColor;
 
 // Fresnel + reflejo del ambiente (cube map).
 // reflectivity = cuanto refleja al mirarlo de frente (0 = sin reflejo, 0.5 = metal plateado).
@@ -71,8 +77,7 @@ void main()
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
 
-    // Color base del material. IMPORTANTE: se aplica UNA sola vez (antes la textura se multiplicaba dos veces
-    // y todo se veia oscuro y sucio).
+    // Color base del material. Se aplica UNA sola vez.
     vec3 albedo;
     vec3 specMask;
     if (useColor == 1) {
@@ -91,15 +96,24 @@ void main()
     // 2. Luz de reflector (faro de la bicicleta)
     result += CalcSpotLight(spotLight, norm, FragPos, viewDir, albedo, specMask);
 
-    // 3. Fresnel (aproximacion de Schlick) + environment mapping:
-    // mezcla el color del material con el reflejo del cielo; refleja mas cuanto mas de lado se mira.
-        float k = max(reflectivity, materialReflect);
+    // 3. Emision de luz (semaforos)
+    result += emissive;
+
+    // 4. Fresnel (aproximacion de Schlick) + environment mapping:
+    float k = max(reflectivity, materialReflect);
     if (k > 0.0) {
         vec3 R = reflect(-viewDir, norm);
         vec3 entorno = texture(envMap, R).rgb;
         float cosT = clamp(dot(norm, viewDir), 0.0, 1.0);
         float F = k + (1.0 - k) * pow(1.0 - cosT, 5.0);
         result = mix(result, entorno, F);
+    }
+
+    // 5. Niebla atmosferica exponencial
+    if (nieblaDensidad > 0.0001) {
+        float distCam = length(viewPos - FragPos);
+        float niebla = 1.0 - exp(-pow(distCam * nieblaDensidad, 2.0));
+        result = mix(result, nieblaColor, clamp(niebla, 0.0, 1.0));
     }
 
     color = vec4(clamp(result, 0.0, 1.0), 1.0);
