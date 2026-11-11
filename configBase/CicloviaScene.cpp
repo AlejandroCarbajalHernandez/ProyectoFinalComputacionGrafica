@@ -9,6 +9,68 @@
 #include "Semaforo.h"
 #include <algorithm>
 
+// Texturas de imagen (se cargan en Init)
+static GLuint texPasto = 0;
+static GLuint texAsfalto = 0;
+static GLuint texTierra = 0;
+static GLuint texArena = 0;
+static GLuint texCalle = 0;
+static GLuint texPiso = 0;
+static int terrVertsHasta475 = 0;   // vértices de la terracería antes de Tepoztlán (para separar la calle)
+
+
+// Franja de suelo a lo largo de la ruta (de sIni a sFin, anchoLat metros a cada lado), con textura plana
+static GLuint pisoVAO = 0, pisoVBO = 0;
+static int pisoCount = 0;
+
+static void ConstruirFranja(float sIni, float sFin, float anchoLat, float escala,
+    GLuint& vao, GLuint& vbo, int& cuenta) {
+    std::vector<float> verts;
+    const float PASO_S = 2.5f;
+    const int SUBDIV = 18;
+
+    auto punto = [](float s, float lado) {
+        Ruta::Muestra p = Ruta::En(s);
+        float th = glm::radians(p.headingDeg);
+        glm::vec3 pos = p.pos + glm::vec3(std::cos(th), 0.0f, -std::sin(th)) * lado;
+        pos.y = Ruta::AlturaSuelo(pos.x, pos.z) - 0.08f;
+        return pos;
+        };
+
+    for (float s = sIni; s + PASO_S <= sFin; s += PASO_S) {
+        for (int d = 0; d < SUBDIV; d++) {
+            float l0 = -anchoLat + (2.0f * anchoLat / SUBDIV) * d;
+            float l1 = -anchoLat + (2.0f * anchoLat / SUBDIV) * (d + 1);
+            glm::vec3 v00 = punto(s, l0), v10 = punto(s + PASO_S, l0);
+            glm::vec3 v01 = punto(s, l1), v11 = punto(s + PASO_S, l1);
+
+            glm::vec3 n = glm::normalize(glm::cross(v10 - v00, v01 - v00));
+            if (n.y < 0.0f) n = -n;
+
+            auto pushV = [&](const glm::vec3& p) {
+                float f[8] = { p.x, p.y, p.z, n.x, n.y, n.z, p.x / escala, p.z / escala };
+                verts.insert(verts.end(), f, f + 8);
+                };
+            pushV(v00); pushV(v10); pushV(v11);
+            pushV(v00); pushV(v11); pushV(v01);
+        }
+    }
+
+    cuenta = (int)(verts.size() / 8);
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+}
+
 CicloviaScene::CicloviaScene() {
     trackModel = nullptr;
     bridgeModel = nullptr;
@@ -162,6 +224,16 @@ void CicloviaScene::Init() {
 
     BuildRoad();
     BuildAridTerrain();
+    ConstruirFranja(475.0f, 685.0f, 45.0f, 4.0f, pisoVAO, pisoVBO, pisoCount);   // piso de Tepoztlán
+
+    // Texturas de imagen (carpeta assets/texturas)
+    texPasto = TextureFromFile("pasto.jpg", "../assets/texturas");
+    texAsfalto = TextureFromFile("asfalto.jpg", "../assets/texturas");
+    texTierra = TextureFromFile("tierra.jpg", "../assets/texturas");
+    texArena = TextureFromFile("arena.jpg", "../assets/texturas");
+    texCalle = TextureFromFile("calle.jpg", "../assets/texturas");
+    texPiso = TextureFromFile("piso.jpg", "../assets/texturas");
+
 
     Ruta::Muestra p0 = Ruta::En(0.0f);
     const PolancoScene::Viewpoint& vp = PolancoScene::GetViewpoint(0);
@@ -184,7 +256,7 @@ void CicloviaScene::Init() {
 void CicloviaScene::BuildAridTerrain() {
     std::vector<float> aridVerts;
     const float S_INICIO_ARIDO = 320.0f;
-    const float S_FIN_ARIDO = 415.0f;
+    const float S_FIN_ARIDO = 475.0f;
     const float PASO_S = 2.5f;
     const float ANCHO_LATERAL = 26.0f;
     const int   SUBDIV_LAT = 6;
@@ -250,6 +322,18 @@ void CicloviaScene::BuildRoad() {
         }
         };
 
+
+    // Igual que quad, pero con coordenadas de textura: u a lo ancho (0 a 1), v a lo largo de la pista
+    auto quadUV = [](std::vector<float>& v, glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d, float va, float vb) {
+        glm::vec3 pts[6] = { a, b, c, a, c, d };
+        glm::vec2 uv[6] = { glm::vec2(0.0f, va), glm::vec2(1.0f, va), glm::vec2(1.0f, vb),
+                            glm::vec2(0.0f, va), glm::vec2(1.0f, vb), glm::vec2(0.0f, vb) };
+        for (int k = 0; k < 6; k++) {
+            float f[8] = { pts[k].x, pts[k].y, pts[k].z, 0.0f, 1.0f, 0.0f, uv[k].x, uv[k].y };
+            v.insert(v.end(), f, f + 8);
+        }
+        };
+
     auto ancho = [](float s) {
         float w = 2.5f;
         w += (2.0f - 2.5f) * Ruta::SmoothStep(195.0f, 225.0f, s);
@@ -274,7 +358,7 @@ void CicloviaScene::BuildRoad() {
         glm::vec3 Lb = b.pos - rb * wb, Rb = b.pos + rb * wb;
 
         if (a.s < S_CORTE_TERRACERIA) {
-            quad(asfalto, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista);
+            quadUV(asfalto, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista, a.s / 2.5f, b.s / 2.5f);
 
             if (std::fmod(a.s, 3.0f) < 1.5f) {
                 float h = 0.06f;
@@ -290,7 +374,8 @@ void CicloviaScene::BuildRoad() {
             }
         }
         else {
-            quad(terraceria, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista);
+            quadUV(terraceria, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista, a.s / 2.0f, b.s / 2.0f);
+            if (a.s < 475.0f) terrVertsHasta475 += 6;   // lo que sigue de 475 m es la calle de Tepoztlán
         }
     }
 
@@ -322,27 +407,54 @@ void CicloviaScene::BuildRoad() {
 void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
 
-    // 1. Suelo base
-    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
-    glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.35f, 0.44f, 0.20f);
+    // 1. Suelo base (con textura de pasto)
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texPasto);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(terrainVAO);
     glDrawArrays(GL_TRIANGLES, 0, terrainCount);
     glBindVertexArray(0);
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);   // el manto árido sigue con color
 
-    // 2. Manto árido
-    glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.62f, 0.50f, 0.33f);
+    // 2. Manto árido (con textura de arena)
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texArena);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
     glBindVertexArray(aridVAO);
     glDrawArrays(GL_TRIANGLES, 0, aridCount);
     glBindVertexArray(0);
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
+
+
+    // 2b. Piso de Tepoztlán (con textura de piso)
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texPiso);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
+    glBindVertexArray(pisoVAO);
+    glDrawArrays(GL_TRIANGLES, 0, pisoCount);
+    glBindVertexArray(0);
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
 
     // 3. Pista
     model = glm::mat4(1.0f);
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(roadVAO);
 
-    glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.30f, 0.30f, 0.32f);
+    // Asfalto con textura de imagen
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texAsfalto);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
     glDrawArrays(GL_TRIANGLES, roadStart[0], roadCount[0]);
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);   // raya, bordillos y terracería siguen con color
 
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.95f, 0.78f, 0.10f);
     glDrawArrays(GL_TRIANGLES, roadStart[1], roadCount[1]);
@@ -350,8 +462,17 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.70f, 0.70f, 0.68f);
     glDrawArrays(GL_TRIANGLES, roadStart[2], roadCount[2]);
 
-    glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.48f, 0.38f, 0.26f);
-    glDrawArrays(GL_TRIANGLES, roadStart[3], roadCount[3]);
+    // Terracería con textura de tierra
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texTierra);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
+    glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
+    glDrawArrays(GL_TRIANGLES, roadStart[3], terrVertsHasta475);
+
+    // Calle de Tepoztlán (de 475 m en adelante) con textura de adoquín
+    glBindTexture(GL_TEXTURE_2D, texCalle);
+    glDrawArrays(GL_TRIANGLES, roadStart[3] + terrVertsHasta475, roadCount[3] - terrVertsHasta475);
 
     glBindVertexArray(0);
 
