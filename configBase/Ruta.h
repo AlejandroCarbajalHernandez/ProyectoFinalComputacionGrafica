@@ -54,14 +54,16 @@ inline const std::vector<Muestra>& Muestras() {
         int n = (int)std::ceil(t.largo / PASO);
         float ds = t.largo / n, dth = t.giroDeg / n;
         for (int i = 0; i < n; i++) {
+            if (s > 530.0f) break;
             float y = ALTURA_ASCENSO * SmoothStep(zIniRural, zFinRural, s);
             m.push_back({ glm::vec3(x, y, z), th, s, t.zona });
             float mid = glm::radians(th + 0.5f * dth);
             x += -std::sin(mid) * ds; z += -std::cos(mid) * ds;
             th += dth; s += ds;
         }
+        if (s > 530.0f) break;
     }
-    m.push_back({ glm::vec3(x, ALTURA_ASCENSO, z), th, s, PUEBLO });
+    ///*m.push_back({ glm::vec3(x, ALTURA_ASCENSO, z), th, s, PUEBLO });*/
     return m;
 }
 

@@ -165,6 +165,13 @@ void CicloviaScene::Init() {
     w = glm::translate(w, -vp.pos);
     polanco.worldMatrix = w;
     polanco.Init();
+
+    Ruta::Muestra pTepoz = Ruta::En(475.0f);
+    glm::mat4 wTepoz(1.0f);
+    wTepoz = glm::translate(wTepoz, pTepoz.pos);
+    wTepoz = glm::rotate(wTepoz, glm::radians(pTepoz.headingDeg), glm::vec3(0.0f, 1.0f, 0.0f));
+    tepoztlan.worldMatrix = wTepoz;
+    tepoztlan.Init();
 }
 
 // Manto árido estrictamente entre 320 y 415 m (deja verde el resto hacia Tepoztlán)
@@ -241,7 +248,7 @@ void CicloviaScene::BuildRoad() {
     auto ancho = [](float s) {
         float w = 2.5f;
         w += (2.0f - 2.5f) * Ruta::SmoothStep(195.0f, 225.0f, s);
-        w += (2.25f - 2.0f) * Ruta::SmoothStep(460.0f, 490.0f, s);
+        w += (2.25f - 2.0f) * Ruta::SmoothStep(460.0f, 530.0f, s);
         return w;
         };
 
@@ -429,6 +436,7 @@ void CicloviaScene::DrawUrbana(Shader& shader, GLint modelLoc) {
 }
 
 void CicloviaScene::DrawPueblo(Shader& shader, GLint modelLoc) {
+    tepoztlan.Draw(shader, modelLoc);
 }
 
 void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
