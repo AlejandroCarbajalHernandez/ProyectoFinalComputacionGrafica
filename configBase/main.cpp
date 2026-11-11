@@ -307,7 +307,7 @@ int main() {
                 centrado(nombres[z], H * 0.62f, 5.0f, glm::vec4(1.0f, 0.85f, 0.2f, a));
             }
 
-            // Fin de Juego / Victoria con Estadísticas Completas
+            // Fin de Juego / Victoria
             if (game.estado != STATUS_JUGANDO) {
                 const glm::vec4 VERDE(0.3f, 1.0f, 0.4f, 1.0f), ROJO(1.0f, 0.3f, 0.3f, 1.0f);
                 if (game.estado == STATUS_VICTORIA) {
@@ -330,7 +330,6 @@ int main() {
 
                     centrado("PUNTOS: " + std::to_string(puntos) + "   " + calif, H * 0.30f, 4.0f, AMARILLO);
 
-                    // Botón para modo exploración
                     float btnW = 380.0f, btnH = 38.0f;
                     float btnX = (W - btnW) * 0.5f;
                     float btnY = H * 0.22f;
@@ -439,13 +438,12 @@ void DoMovement() {
         glm::vec2 right(std::cos(th), -std::sin(th));
         glm::vec2 delta(player.position.x - muestras[mejorIdx].pos.x, player.position.z - muestras[mejorIdx].pos.z);
         lateralActual = glm::dot(delta, right);
-        PolancoScene::riderS = sActual;
-        GameStatus estadoAnterior = game.estado;
-        float psiGuardado = game.psi;
-        float aguaGuardada = game.agua;
-        game.Actualizar(deltaTime, sActual, lateralActual, velocidadReal, 0.0f);
     }
 
+    // Le pasa la posición al cruce de Polanco
+    PolancoScene::riderS = sActual;
+
+    // Actualiza la física y el estado del juego una sola vez por cuadro
     GameStatus estadoAnterior = game.estado;
     float psiGuardado = game.psi;
     float aguaGuardada = game.agua;
@@ -460,7 +458,7 @@ void DoMovement() {
 
     sJugador = sActual;
 
-    // Multas de semáforo
+    // Multas de semáforo al cruzar en rojo
     static float sAnterior = 0.0f;
     if (game.estado == STATUS_JUGANDO && !modoExploracionTepoz) {
         for (float sSem : Semaforo::POSICIONES) {
@@ -728,4 +726,4 @@ void RenderHUD(float psi, float maxPsi, float agua, float maxAgua, int screenWid
 
     glBindVertexArray(0);
     glEnable(GL_DEPTH_TEST);
-}
+} 
