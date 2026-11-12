@@ -375,7 +375,7 @@ int main() {
             if (enMenu) {
                 Texto::Panel(0.0f, 0.0f, (float)W, (float)H, glm::vec4(0.0f, 0.0f, 0.0f, 0.78f), W, H);
                 centrado("CICLOVIA FERROCARRIL DE CUERNAVACA", H * 0.82f, 5.0f, AMARILLO);
-                centrado("CDMX - TEPOZTLAN   |   EQUIPO 1 CICLOTURISMO", H * 0.75f, 2.5f, BLANCO);
+                centrado("CDMX - TEPOZTLAN   |   CICLISMO", H * 0.75f, 2.5f, BLANCO);
 
                 const char* controles[] = {
                     "W / FLECHA ARRIBA ... PEDALEAR",
