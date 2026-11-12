@@ -38,6 +38,7 @@ GameLogic game;
 Skybox skybox;
 
 const float HEADLIGHT = 0.25f;
+bool faroEncendido = true;
 const glm::vec3 SUN_DIR(-0.25f, -0.75f, -0.60f);
 
 glm::vec3 startPosition(0.0f);
@@ -147,12 +148,13 @@ int main() {
         glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 16.0f);
 
         // 2. Faro
+        float faro = faroEncendido ? HEADLIGHT : 0.0f;
         glm::vec3 front = player.GetFrontVector();
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.position"), player.position.x, player.position.y + 0.6f, player.position.z);
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.direction"), front.x, -0.1f, front.z);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f * HEADLIGHT, 0.1f * HEADLIGHT, 0.1f * HEADLIGHT);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f * HEADLIGHT, 0.9f * HEADLIGHT, 0.8f * HEADLIGHT);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f * HEADLIGHT, 0.4f * HEADLIGHT, 0.4f * HEADLIGHT);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f * faro, 0.1f * faro, 0.1f * faro);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f * faro, 0.9f * faro, 0.8f * faro);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f * faro, 0.4f * faro, 0.4f * faro);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.constant"), 1.0f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.linear"), 0.07f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.quadratic"), 0.017f);
@@ -367,15 +369,16 @@ int main() {
                     "A D / FLECHAS ....... GIRAR",
                     "SHIFT ............... IMPULSO",
                     "C ................... CAMBIAR CAMARA",
+                    "F ................... FARO ON/OFF",
                     "1 A 5 ............... SALTAR A UNA ZONA",
                     "R ................... REINICIAR",
                     "T ................... RECORRIDO AUTOMATICO",
                     "H ................... AYUDA",
                     "ESC ................. SALIR" };
-                float yc = H * 0.64f;
+                float yc = H * 0.66f;
                 for (const char* linea : controles) {
                     Texto::Dibujar(linea, W * 0.5f - 270.0f, yc, 2.5f, BLANCO, W, H);
-                    yc -= 28.0f;
+                    yc -= 26.0f;
                 }
 
                 centrado("OBJETIVO: LLEGA A TEPOZTLAN SIN PONCHAR NI DESHIDRATARTE", H * 0.25f, 2.5f, AMARILLO);
@@ -592,7 +595,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
     if ((key == GLFW_KEY_2 || key == GLFW_KEY_R) && action == GLFW_PRESS) {
         ResetToStart();
     }
-
+    if (key == GLFW_KEY_F && action == GLFW_PRESS) { faroEncendido = !faroEncendido; }
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         PrintPosition();
     }
