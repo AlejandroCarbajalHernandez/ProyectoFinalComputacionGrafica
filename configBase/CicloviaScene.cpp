@@ -9,7 +9,7 @@
 #include "Semaforo.h"
 #include <algorithm>
 
-// Texturas de terreno
+// Identificadores de texturas y geometría auxiliar del terreno
 static GLuint texPasto = 0;
 static GLuint texAsfalto = 0;
 static GLuint texTierra = 0;
@@ -21,6 +21,7 @@ static int terrVertsHasta475 = 0;
 static GLuint pisoVAO = 0, pisoVBO = 0;
 static int pisoCount = 0;
 
+// Genera una malla de terreno en franja siguiendo la trayectoria de la ruta entre sIni y sFin
 static void ConstruirFranja(float sIni, float sFin, float anchoLat, float escala,
     GLuint& vao, GLuint& vbo, int& cuenta)
 {
@@ -36,6 +37,7 @@ static void ConstruirFranja(float sIni, float sFin, float anchoLat, float escala
         return pos;
         };
 
+    // Triangulación de la franja y cálculo de normales por cara
     for (float s = sIni; s + PASO_S <= sFin; s += PASO_S) {
         for (int d = 0; d < SUBDIV; d++) {
             float l0 = -anchoLat + (2.0f * anchoLat / SUBDIV) * d;
@@ -56,6 +58,7 @@ static void ConstruirFranja(float sIni, float sFin, float anchoLat, float escala
         }
     }
 
+    // Carga de atributos de vértice (posición, normal, UV) en GPU
     cuenta = (int)(verts.size() / 8);
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
@@ -71,6 +74,7 @@ static void ConstruirFranja(float sIni, float sFin, float anchoLat, float escala
     glBindVertexArray(0);
 }
 
+// Constructor: inicializa punteros de modelos y buffers de OpenGL en estado nulo
 CicloviaScene::CicloviaScene() {
     trackModel = nullptr;
     bridgeModel = nullptr;
@@ -113,6 +117,7 @@ CicloviaScene::CicloviaScene() {
     }
 }
 
+// Destructor: libera memoria de los modelos cargados y elimina los VAO/VBO de la GPU
 CicloviaScene::~CicloviaScene() {
     delete trackModel;
     delete bridgeModel;
@@ -149,7 +154,9 @@ CicloviaScene::~CicloviaScene() {
     if (pisoVBO)    glDeleteBuffers(1, &pisoVBO);
 }
 
+// Inicializa modelos 3D, genera la malla topográfica del terreno y configura las sub-escenas
 void CicloviaScene::Init() {
+    // Carga de modelos de entorno, flora, infraestructura y fauna
     trackModel = new Model((char*)"../assets/obj/pista/pista.obj");
     treeModel = new Model((char*)"../assets/obj/arbol/arbol.obj");
     ocoteModel = new Model((char*)"../assets/obj/ocote/ocote.obj");
@@ -174,6 +181,7 @@ void CicloviaScene::Init() {
     ovejaModel = new Model((char*)"../assets/obj/oveja/Oveja.obj");
     caballoModel = new Model((char*)"../assets/obj/caballo/caballo.obj");
 
+    // Construcción de la cuadrícula de alturas y cálculo de normales por diferencias finitas
     const float X0 = -300.0f, X1 = 150.0f, Z0 = -700.0f, Z1 = 100.0f, PASO_T = 4.0f;
     const int NX = (int)((X1 - X0) / PASO_T), NZ = (int)((Z1 - Z0) / PASO_T);
 
@@ -219,10 +227,12 @@ void CicloviaScene::Init() {
     glEnableVertexAttribArray(2);
     glBindVertexArray(0);
 
+    // Generación de geometría procedural de carretera, zona árida y suelo del pueblo
     BuildRoad();
     BuildAridTerrain();
     ConstruirFranja(475.0f, 685.0f, 45.0f, 4.0f, pisoVAO, pisoVBO, pisoCount);
 
+    // Carga de texturas difusas para los distintos tipos de superficie
     texPasto = TextureFromFile("pasto.jpg", "../assets/texturas");
     texAsfalto = TextureFromFile("asfalto.jpg", "../assets/texturas");
     texTierra = TextureFromFile("tierra.jpg", "../assets/texturas");
@@ -230,6 +240,7 @@ void CicloviaScene::Init() {
     texCalle = TextureFromFile("calle.jpg", "../assets/texturas");
     texPiso = TextureFromFile("piso.jpg", "../assets/texturas");
 
+    // Alineación e inicialización de la escena urbana de Polanco (inicio de ruta)
     Ruta::Muestra p0 = Ruta::En(0.0f);
     const PolancoScene::Viewpoint& vp = PolancoScene::GetViewpoint(0);
     glm::mat4 w(1.0f);
@@ -239,6 +250,7 @@ void CicloviaScene::Init() {
     polanco.worldMatrix = w;
     polanco.Init();
 
+    // Alineación e inicialización de la escena de Tepoztlán (metro 475)
     Ruta::Muestra pTepoz = Ruta::En(475.0f);
     glm::mat4 wTepoz(1.0f);
     wTepoz = glm::translate(wTepoz, pTepoz.pos);
@@ -247,6 +259,7 @@ void CicloviaScene::Init() {
     tepoztlan.Init();
 }
 
+// Construye la franja de terreno árido entre los metros 320 y 475
 void CicloviaScene::BuildAridTerrain() {
     std::vector<float> aridVerts;
     const float S_INICIO_ARIDO = 320.0f;
@@ -305,6 +318,7 @@ void CicloviaScene::BuildAridTerrain() {
     glBindVertexArray(0);
 }
 
+// Genera proceduralmente la geometría de la pista (asfalto, línea central, guarniciones y terracería)
 void CicloviaScene::BuildRoad() {
     std::vector<float> asfalto, linea, bordillo, terraceria;
 
@@ -340,6 +354,7 @@ void CicloviaScene::BuildRoad() {
     const float S_CORTE_TERRACERIA = 415.0f;
     terrVertsHasta475 = 0;
 
+    // Recorre las muestras de la ruta separando tramo pavimentado y tramo de terracería/pueblo
     for (size_t i = 0; i + 1 < m.size(); i++) {
         const Ruta::Muestra& a = m[i];
         const Ruta::Muestra& b = m[i + 1];
@@ -374,6 +389,7 @@ void CicloviaScene::BuildRoad() {
         }
     }
 
+    // Empaqueta los 4 sub-buffers en un único VBO con índices de inicio y conteo
     std::vector<float> todo;
     roadStart[0] = 0;                                               roadCount[0] = (int)(asfalto.size() / 8);
     roadStart[1] = roadCount[0];                                    roadCount[1] = (int)(linea.size() / 8);
@@ -399,6 +415,7 @@ void CicloviaScene::BuildRoad() {
     glBindVertexArray(0);
 }
 
+// Renderizado principal de la escena: terrenos, pista y zonas ambientalizadas
 void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
 
@@ -471,12 +488,14 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glBindVertexArray(0);
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
 
+    // 4. Renderizado de sub-escenas y entidades animadas
     DrawUrbana(shader, modelLoc);
     DrawRural(shader, modelLoc);
     DrawPueblo(shader, modelLoc);
     DrawAves(shader, modelLoc);
 }
 
+// Dibuja una parvada de aves en vuelo circular usando animación esquelética (skinning)
 void CicloviaScene::DrawAves(Shader& shader, GLint modelLoc) {
     float t = (float)glfwGetTime();
 
@@ -509,6 +528,7 @@ void CicloviaScene::DrawAves(Shader& shader, GLint modelLoc) {
     glUniform1i(glGetUniformLocation(shader.Program, "useBones"), 0);
 }
 
+// Actualiza la intensidad emisiva de las luces según la fase actual y dibuja los semáforos
 void CicloviaScene::DrawSemaforos(Shader& shader, GLint modelLoc) {
     if (!semaforoModel) return;
 
@@ -539,15 +559,18 @@ void CicloviaScene::DrawSemaforos(Shader& shader, GLint modelLoc) {
     }
 }
 
+// Dibuja la sección urbana inicial (Polanco y semáforos)
 void CicloviaScene::DrawUrbana(Shader& shader, GLint modelLoc) {
     polanco.Draw(shader, modelLoc);
     DrawSemaforos(shader, modelLoc);
 }
 
+// Dibuja la escena arquitectónica final (Tepoztlán)
 void CicloviaScene::DrawPueblo(Shader& shader, GLint modelLoc) {
     tepoztlan.Draw(shader, modelLoc);
 }
 
+// Renderizado jerárquico para animales cuadrúpedos: cuerpo raíz y articulación independiente de 4 patas
 void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
     const glm::mat4& root, float walkPhase,
     float xHombro, float xCadera, float yCadera,
@@ -555,6 +578,7 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
 {
     if (!m) return;
 
+    // Dibuja el torso excluyendo las mallas de las patas
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(root));
     m->DrawExcluding(shader, "Pata_D", "Pata_T");
 
@@ -576,6 +600,7 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
         { "Pata_TD", angTD, xCadera }
     };
 
+    // Transforma y dibuja cada extremidad alrededor de su pivote (hombro o cadera)
     for (int p = 0; p < 4; p++) {
         glm::mat4 mPata = root;
         mPata = glm::translate(mPata, glm::vec3(patas[p].xPivot, yCadera, 0.0f));
@@ -587,6 +612,7 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
     }
 }
 
+// Pobla y anima los biomas de bosque (210-320 m), zona árida (320-475 m) y la fauna local
 void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
     const float INICIO_E2 = 210.0f;
@@ -602,6 +628,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         return r;
         };
 
+    // Generador pseudoaleatorio determinista para distribución orgánica de vegetación
     auto azar = [](int k) {
         float x = std::sin(k * 12.9898f) * 43758.5453f;
         return x - std::floor(x);
@@ -710,7 +737,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // 2. Bioma Árido (320 a 475 m)
+    // 2. Bioma Árido (320 a 475 m): huizaches, magueyes, nopales y rocas de tepetate
     int slot = 0;
     for (float s = INICIO_ARIDO + 3.0f; s < FIN_ARIDO; s += 5.5f, slot++) {
         for (int L = 0; L < 2; L++) {
@@ -780,6 +807,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
+    // Gavillas de cultivo y torres de alta tensión en el horizonte árido
     if (gavillaModel) {
         for (float sG = 335.0f; sG <= 405.0f; sG += 22.0f) {
             for (int L = 0; L < 2; L++) {
@@ -805,7 +833,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // 3. Fauna Cuadrúpeda
+    // 3. Fauna Cuadrúpeda: máquina de estados por tramos (caminata, pausa de pastoreo y giro suave)
     float t = (float)glfwGetTime();
     const float S_REBANO = 370.0f;
     Ruta::Muestra pMuestra = Ruta::En(S_REBANO);
@@ -889,6 +917,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             return res;
         };
 
+    // Instanciación y animación de cabras, ovejas, caballo y perros
     if (cabraModel) {
         const struct { float ds; float lateral; float fOff; } cbData[] = {
             { -3.5f,  6.2f, 0.0f },

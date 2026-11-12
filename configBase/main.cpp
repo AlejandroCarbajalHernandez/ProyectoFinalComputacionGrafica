@@ -21,6 +21,7 @@
 #include "Texto.h"
 #include "Semaforo.h"
 
+// Prototipos de funciones de control, ciclo de vida e interfaz 2D
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
@@ -29,15 +30,18 @@ void PrintPosition();
 void InitHUD();
 void RenderHUD(float psi, float maxPsi, float agua, float maxAgua, int screenWidth, int screenHeight);
 
+// Dimensiones de la ventana
 const GLuint WIDTH = 1280, HEIGHT = 720;
 int SCREEN_WIDTH, SCREEN_HEIGHT;
 
+// Instancias globales de cámara, jugador, escenarios y lógica del juego
 Camera camera(glm::vec3(0.0f, 1.5f, 3.0f));
 PlayerBike player;
 CicloviaScene scene;
 GameLogic game;
 Skybox skybox;
 
+// Parámetros de iluminación ambiental (ciclo día/noche) y faro delantero
 const float HEADLIGHT = 0.25f;
 bool faroEncendido = true;
 bool esDeNoche = false;
@@ -47,6 +51,7 @@ const glm::vec3 SUN_DIR(-0.25f, -0.75f, -0.60f);
 glm::vec3 startPosition(0.0f);
 float startRotation = 0.0f;
 
+// Variables de control de entrada (teclado y ratón)
 GLfloat lastX = WIDTH / 2.0f;
 GLfloat lastY = HEIGHT / 2.0f;
 bool keys[1024];
@@ -54,6 +59,7 @@ bool firstMouse = true;
 
 int cameraMode = 0; // 0 = GoPro, 1 = Tercera Persona, 2 = Libre
 
+// Variables de tiempo, progreso en ruta y estados de interfaz
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 float sJugador = 0.0f;
@@ -62,17 +68,19 @@ float zonaTimer = 0.0f;
 bool enMenu = true;
 bool modoExploracionTepoz = false;
 
-// Funcionalidades de la PR
+// Variables de infracciones de tránsito, notificaciones y recorrido automático
 int multasSemaforo = 0;
 float avisoTimer = 0.0f;
 std::string avisoTexto;
 bool tourAuto = false;
 float tourT = 0.0f;
 
+// Recursos OpenGL para el HUD 2D
 GLuint hudVAO = 0, hudVBO = 0;
 GLuint hudProgram = 0;
 
 int main() {
+    // Inicialización de GLFW y configuración del contexto OpenGL 3.3 Core Profile
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -90,10 +98,12 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwGetFramebufferSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
 
+    // Registro de callbacks de teclado y ratón
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCursorPosCallback(window, MouseCallback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+    // Inicialización de GLEW
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
         std::cout << "Error al inicializar GLEW" << std::endl;
@@ -103,6 +113,7 @@ int main() {
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     glEnable(GL_DEPTH_TEST);
 
+    // Compilación del shader principal de iluminación y carga de activos 3D/2D
     Shader lightingShader("Shader/lighting.vs", "Shader/lighting.frag");
 
     player.Init();
@@ -117,6 +128,7 @@ int main() {
     game.Init();
     ResetToStart();
 
+    // Configuración inicial de unidades de textura en el shader
     lightingShader.Use();
     glUniform1i(glGetUniformLocation(lightingShader.Program, "material.diffuse"), 0);
     glUniform1i(glGetUniformLocation(lightingShader.Program, "material.specular"), 1);
@@ -125,7 +137,9 @@ int main() {
 
     glm::mat4 projection = glm::perspective(glm::radians(65.0f), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 500.0f);
 
+    // Bucle principal de renderizado (Game Loop)
     while (!glfwWindowShouldClose(window)) {
+        // Cálculo de deltaTime para sincronizar físicas y animaciones
         GLfloat currentFrame = static_cast<GLfloat>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
@@ -133,11 +147,13 @@ int main() {
         glfwPollEvents();
         DoMovement();
 
+        // Interpolación gradual de iluminación entre día y noche
         float objetivoDia = esDeNoche ? 0.0f : 1.0f;
         float pasoDia = deltaTime / 18.0f;   // 18 s para pasar de día a noche
         if (factorDia < objetivoDia) factorDia = std::min(objetivoDia, factorDia + pasoDia);
         else                         factorDia = std::max(objetivoDia, factorDia - pasoDia);
 
+        // Limpieza de buffers con destello rojo temporal si el jugador recibe daño
         if (game.alertaDanioTimer > 0.0f) {
             glClearColor(0.85f, 0.35f, 0.30f, 1.0f);
         }
@@ -148,7 +164,7 @@ int main() {
 
         lightingShader.Use();
 
-        // 1. Sol
+        // 1. Sol (Luz direccional modulada por el ciclo día/noche)
         glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
         glm::vec3 ambiente = glm::mix(glm::vec3(0.10f, 0.11f, 0.22f), glm::vec3(0.38f, 0.40f, 0.45f), factorDia);
         glm::vec3 difusa = glm::mix(glm::vec3(0.08f, 0.10f, 0.22f), glm::vec3(0.85f, 0.82f, 0.72f), factorDia);
@@ -158,7 +174,7 @@ int main() {
         glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), especular, especular, especular);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 16.0f);
 
-        // 2. Faro
+        // 2. Faro (Luz reflector acoplada al frente de la bicicleta)
         float faro = faroEncendido ? HEADLIGHT * (1.0f + 5.0f * (1.0f - factorDia)) : 0.0f;
         glm::vec3 front = player.GetFrontVector();
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.position"), player.position.x, player.position.y + 0.6f, player.position.z);
@@ -172,7 +188,7 @@ int main() {
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.cutOff"), glm::cos(glm::radians(15.0f)));
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.outerCutOff"), glm::cos(glm::radians(22.0f)));
 
-        // 3. Sistema de Cámaras
+        // 3. Sistema de Cámaras (tour cinematográfico, primera persona, tercera persona y libre)
         glm::mat4 view;
         glm::vec3 eyePos;
 
@@ -225,6 +241,7 @@ int main() {
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
+        // Renderizado del Skybox y enlace de su cubemap para reflejos ambientales
         skybox.shader->Use();
         glUniform1f(glGetUniformLocation(skybox.shader->Program, "brillo"), factorDia);
 
@@ -237,12 +254,12 @@ int main() {
 
         lightingShader.Use();
 
-        // 4. Renderizado de escena
+        // 4. Renderizado de escena 3D (entorno, ítems/obstáculos y ciclista)
         scene.Draw(lightingShader, modelLoc);
         game.DrawEntidades(lightingShader, modelLoc);
         player.Draw(lightingShader, modelLoc, primeraPersona);
 
-        // 5. Renderizado HUD
+        // 5. Renderizado HUD y superposición de interfaz 2D (telemetría, minimapa y menús)
         RenderHUD(game.psi, game.PSI_MAX, game.agua, game.AGUA_MAX, SCREEN_WIDTH, SCREEN_HEIGHT);
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -257,6 +274,7 @@ int main() {
             Texto::Dibujar("LLANTAS (PSI)", 35.0f, 86.0f, 2.0f, BLANCO, W, H);
             Texto::Dibujar("HIDRATACION", 35.0f, 56.0f, 2.0f, BLANCO, W, H);
 
+            // Panel superior de zona actual y objetivos del tramo
             const char* nombres[5] = {
                 "ZONA 1 - URBANA: POLANCO",
                 "ZONA 2 - RURAL: BOSQUE DE OCOTES",
@@ -283,7 +301,7 @@ int main() {
                 centrado(avisoTexto, H * 0.45f, 4.0f, glm::vec4(1.0f, 0.3f, 0.3f, std::min(1.0f, avisoTimer)));
             }
 
-            // Minimapa
+            // Minimapa en esquina superior derecha con posición de jugador, semáforos y ánforas
             {
                 const float MX = W - 120.0f, MY = H - 275.0f, MW = 100.0f, MH = 255.0f;
                 const float XMIN = -138.0f, ESC = 0.36f;
@@ -326,6 +344,7 @@ int main() {
                 Texto::Dibujar("MAPA", MX + 30.0f, MY - 18.0f, 2.0f, BLANCO, W, H);
             }
 
+            // Banner central temporal al entrar a una nueva zona
             if (zonaTimer > 0.0f && game.estado == STATUS_JUGANDO) {
                 float a = std::min(1.0f, zonaTimer);
                 centrado(nombres[z], H * 0.62f, 5.0f, glm::vec4(1.0f, 0.85f, 0.2f, a));
@@ -411,6 +430,7 @@ int main() {
         glfwSwapBuffers(window);
     }
 
+    // Liberación de recursos de interfaz y cierre de GLFW
     if (hudVAO) glDeleteVertexArrays(1, &hudVAO);
     if (hudVBO) glDeleteBuffers(1, &hudVBO);
     if (hudProgram) glDeleteProgram(hudProgram);
@@ -420,12 +440,14 @@ int main() {
     return 0;
 }
 
+// Actualiza posición sobre la ruta, lógica de juego, infracciones y movimiento del jugador
 void DoMovement() {
     if (enMenu) return;
     static glm::vec3 prevPos = player.position;
     float velocidadReal = glm::length(player.position - prevPos) / (deltaTime > 0.0001f ? deltaTime : 0.016f);
     prevPos = player.position;
 
+    // Proyección de la posición mundial (X, Z) sobre las muestras de la ruta para obtener distancia (s) y desviación lateral
     const auto& muestras = Ruta::Muestras();
     static float sActual = 0.0f;
     float lateralActual = 0.0f;
@@ -467,6 +489,7 @@ void DoMovement() {
         lateralActual = glm::dot(delta, right);
     }
 
+    // Actualización de físicas, consumo y colisiones en GameLogic
     PolancoScene::riderS = sActual;
     GameStatus estadoAnterior = game.estado;
     float psiGuardado = game.psi;
@@ -482,7 +505,7 @@ void DoMovement() {
 
     sJugador = sActual;
 
-    // Multas de semáforo
+    // Multas de semáforo: penaliza -5 PSI si cruza la línea cuando la fase está en rojo
     static float sAnterior = 0.0f;
     if (game.estado == STATUS_JUGANDO && !modoExploracionTepoz) {
         for (float sSem : Semaforo::POSICIONES) {
@@ -498,10 +521,12 @@ void DoMovement() {
     sAnterior = sActual;
     if (avisoTimer > 0.0f) avisoTimer -= deltaTime;
 
+    // Detección de cambio de zona geográfica para disparar el banner informativo
     int zonaNueva = (sActual < 210.0f) ? 0 : (sActual < 320.0f) ? 1 : (sActual < 415.0f) ? 2 : (sActual < 475.0f) ? 3 : 4;
     if (zonaNueva != zonaActual) { zonaActual = zonaNueva; zonaTimer = 4.0f; }
     if (zonaTimer > 0.0f) zonaTimer -= deltaTime;
 
+    // Notificaciones en consola al cambiar el estado de la partida
     if (game.estado != estadoAnterior) {
         if (game.estado == STATUS_VICTORIA) {
             std::cout << "\n==========================================" << std::endl;
@@ -518,7 +543,7 @@ void DoMovement() {
         }
     }
 
-    // Controles y Piloto Automático
+    // Controles y Piloto Automático (simula entradas de teclado siguiendo la curva y respetando semáforos/talleres)
     if (game.estado == STATUS_GAME_OVER_PONCHADURA || game.estado == STATUS_GAME_OVER_DESHIDRATACION) {
         // Bloqueado
     }
@@ -562,6 +587,7 @@ void DoMovement() {
         player.ProcessInput(keys, deltaTime);
     }
 
+    // Desplazamiento de la cámara libre con teclas I/J/K/L
     if (cameraMode == 2) {
         if (keys[GLFW_KEY_I]) camera.ProcessKeyboard(FORWARD, deltaTime);
         if (keys[GLFW_KEY_K]) camera.ProcessKeyboard(BACKWARD, deltaTime);
@@ -570,6 +596,7 @@ void DoMovement() {
     }
 }
 
+// Gestiona las pulsaciones de teclado para acciones puntuales (cámaras, menú, faro, día/noche y reinicio)
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
@@ -618,6 +645,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
     }
 }
 
+// Restaura al jugador, la cámara y las variables de partida al inicio de la ruta
 void ResetToStart() {
     player.position = startPosition;
     player.rotation = startRotation;
@@ -639,12 +667,14 @@ void ResetToStart() {
     std::cout << "==========================================\n" << std::endl;
 }
 
+// Imprime en consola las coordenadas actuales y métricas del jugador
 void PrintPosition() {
     std::cout << "[Telemetria] Posicion=(" << player.position.x << ", "
         << player.position.y << ", " << player.position.z << ") | Presion="
         << game.psi << " PSI | Agua=" << game.agua << "%" << std::endl;
 }
 
+// Procesa el movimiento del ratón para orientar la cámara en modo libre
 void MouseCallback(GLFWwindow* window, double xPos, double yPos) {
     if (firstMouse) {
         lastX = static_cast<GLfloat>(xPos);
@@ -662,6 +692,7 @@ void MouseCallback(GLFWwindow* window, double xPos, double yPos) {
     }
 }
 
+// Inicializa el quad 2D y los shaders ortográficos para dibujar las barras de estado
 void InitHUD() {
     float quadVertices[] = {
         0.0f, 1.0f,
@@ -716,6 +747,7 @@ void InitHUD() {
     glDeleteShader(fragment);
 }
 
+// Dibuja en pantalla las barras de progreso de presión PSI e hidratación mediante proyección ortográfica
 void RenderHUD(float psi, float maxPsi, float agua, float maxAgua, int screenWidth, int screenHeight) {
     glDisable(GL_DEPTH_TEST);
     glUseProgram(hudProgram);
@@ -740,11 +772,13 @@ void RenderHUD(float psi, float maxPsi, float agua, float maxAgua, int screenWid
     const float ANCHO_TOTAL = 220.0f;
     const float ALTO_BARRA = 16.0f;
 
+    // Barra de presión de neumáticos (cambia de color según el nivel crítico)
     drawBarra(MARGEN_X - 2.0f, 65.0f - 2.0f, ANCHO_TOTAL + 4.0f, ALTO_BARRA + 4.0f, glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
     float pctPsi = std::max(0.0f, std::min(1.0f, psi / maxPsi));
     glm::vec4 colPsi = (pctPsi > 0.45f) ? glm::vec4(0.2f, 0.85f, 0.25f, 1.0f) : (pctPsi > 0.20f ? glm::vec4(0.95f, 0.75f, 0.1f, 1.0f) : glm::vec4(0.9f, 0.15f, 0.15f, 1.0f));
     drawBarra(MARGEN_X, 65.0f, ANCHO_TOTAL * pctPsi, ALTO_BARRA, colPsi);
 
+    // Barra de nivel de hidratación
     drawBarra(MARGEN_X - 2.0f, 35.0f - 2.0f, ANCHO_TOTAL + 4.0f, ALTO_BARRA + 4.0f, glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
     float pctAgua = std::max(0.0f, std::min(1.0f, agua / maxAgua));
     drawBarra(MARGEN_X, 35.0f, ANCHO_TOTAL * pctAgua, ALTO_BARRA, glm::vec4(0.15f, 0.60f, 0.95f, 1.0f));

@@ -1,12 +1,15 @@
 #version 330 core
+// Fragment shader principal: modelo de iluminación de Phong, reflejos Fresnel (cubemap) y niebla
 out vec4 color;
 
+// Propiedades de superficie del objeto (mapas de textura y brillo especular)
 struct Material {
     sampler2D diffuse;
     sampler2D specular;
     float shininess;
 };
 
+// Parámetros de luz direccional global (Sol)
 struct DirLight {
     vec3 direction;
     vec3 ambient;
@@ -14,6 +17,7 @@ struct DirLight {
     vec3 specular;
 };
 
+// Parámetros de luz puntual con atenuación por distancia
 struct PointLight {
     vec3 position;
     float constant;
@@ -24,6 +28,7 @@ struct PointLight {
     vec3 specular;
 };
 
+// Parámetros de luz focal/reflector con cono interno y externo (Faro de bicicleta)
 struct SpotLight {
     vec3 position;
     vec3 direction;
@@ -39,10 +44,12 @@ struct SpotLight {
 
 #define NUMBER_OF_POINT_LIGHTS 1
 
+// Datos interpolados desde el vertex shader en espacio mundial
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
 
+// Variables uniformes de cámara, fuentes de luz y material
 uniform vec3 viewPos;
 uniform DirLight dirLight;
 uniform PointLight pointLights[NUMBER_OF_POINT_LIGHTS];
@@ -57,7 +64,7 @@ uniform vec3 meshColor;
 // Brillo propio (para las luces del semaforo)
 uniform vec3 emissive;
 
-// Niebla del bosque (PR Octavio)
+// Niebla del bosque
 uniform float nieblaDensidad;
 uniform vec3 nieblaColor;
 
@@ -77,7 +84,7 @@ void main()
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
 
-    // Color base del material. Se aplica UNA sola vez.
+    // Color base del material (textura difusa o color sólido .mtl). Se aplica UNA sola vez.
     vec3 albedo;
     vec3 specMask;
     if (useColor == 1) {
@@ -119,7 +126,7 @@ void main()
     color = vec4(clamp(result, 0.0, 1.0), 1.0);
 }
 
-// Luz Direccional (Sol)
+// Calcula las componentes ambiental, difusa y especular (Phong) de la luz direccional
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, vec3 specMask)
 {
     vec3 lightDir = normalize(-light.direction);
@@ -135,7 +142,7 @@ vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, vec3 s
     return (ambient + diffuse + specular);
 }
 
-// Luz Puntual
+// Calcula la contribución de una luz puntual aplicando atenuación cuadrática por distancia
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, vec3 specMask)
 {
     vec3 lightDir = normalize(light.position - fragPos);
@@ -154,7 +161,7 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
     return (ambient + diffuse + specular) * attenuation;
 }
 
-// Luz Focal (faro)
+// Calcula la contribución del reflector suavizando los bordes entre cutOff y outerCutOff
 vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, vec3 specMask)
 {
     vec3 lightDir = normalize(light.position - fragPos);

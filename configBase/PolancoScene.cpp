@@ -13,7 +13,7 @@
 // Avance de la bici sobre la ruta (m). main.cpp lo actualiza en cada cuadro.
 float PolancoScene::riderS = 0.0f;
 
-// Cruce de carretera
+// Parámetros geométricos y de control para el cruce vehicular (metro 200)
 static const float CRUCE_S = 200.0f;
 static const float DIST_ACTIVACION = 60.0f;
 static const float ANCHO_CALLE = 12.0f;
@@ -24,27 +24,31 @@ static const float LINEA_ALTO = PISTA_MEDIO + 1.5f;
 static const float CRUCE_Y = 0.105f;
 static const float BICI_ZONA = 4.0f;
 
-// Hueco libre para el Museo Soumaya
+// Rango en Z reservado para evitar colisión visual con el Museo Soumaya
 static const float MUSEO_Z_INI = -20.0f;
 static const float MUSEO_Z_FIN = -125.0f;
 
+// Escalas y offsets verticales de edificaciones específicas
 static const float EDIF_AB_ESC = 3.0f;
 static const float EDIFA_Y = 0.0f;
 static const float EDIFB_Y = 0.0f;
 static const float CASA1_ESC = 1.5f;
 static const float CASA1_Y = -2.0f;
 
+// Puntos de vista predefinidos para alinear la escena urbana con el inicio de la ruta
 static const PolancoScene::Viewpoint VIEWPOINTS[PolancoScene::VIEWPOINT_COUNT] = {
     { "Inicio de la ciclovia (Polanco, frente a Museos)", glm::vec3(9.6f, 0.0f, 10.0f), 0.0f },
     { "Frente al Museo Soumaya", glm::vec3(9.6f, 0.0f, -150.0f), 90.0f },
 };
 
+// Retorna la configuración del punto de vista solicitado con validación de límites
 const PolancoScene::Viewpoint& PolancoScene::GetViewpoint(int index) {
     if (index < 0) index = 0;
     if (index >= VIEWPOINT_COUNT) index = VIEWPOINT_COUNT - 1;
     return VIEWPOINTS[index];
 }
 
+// Constructor: inicializa todos los punteros de modelos urbanos y vehículos en nulo
 PolancoScene::PolancoScene() {
     museo = nullptr; banca = nullptr; cono = nullptr; puente = nullptr; vias = nullptr;
     arbol = nullptr; luminaria = nullptr; camellon = nullptr;
@@ -60,6 +64,7 @@ PolancoScene::PolancoScene() {
     casa2 = nullptr;
 }
 
+// Destructor: libera la memoria de todos los modelos 3D y del controlador de semáforo
 PolancoScene::~PolancoScene() {
     delete museo;
     delete banca;
@@ -90,7 +95,9 @@ PolancoScene::~PolancoScene() {
     delete casa2;
 }
 
+// Carga los modelos arquitectónicos de Polanco, configura reflejos en cristales y crea el tráfico inicial
 void PolancoScene::Init() {
+    // Mobiliario urbano, vías y Museo Soumaya
     museo = new Model((char*)"../assets/obj/Polanco/MuseoS.obj");
     banca = new Model((char*)"../assets/obj/Polanco/Banca.obj");
     cono = new Model((char*)"../assets/obj/Polanco/Cono.obj");
@@ -100,10 +107,12 @@ void PolancoScene::Init() {
     luminaria = new Model((char*)"../assets/obj/Polanco/Luminaria.obj");
     camellon = new Model((char*)"../assets/obj/Polanco/CamellonArbolado.obj");
 
+    // Vehículos para el cruce animado
     autoRojo = new Model((char*)"../assets/obj/Polanco/AutoRojo.obj");
     autoNegro = new Model((char*)"../assets/obj/Polanco/AutoNegro.obj");
     autobus = new Model((char*)"../assets/obj/Polanco/AutobusTuristico.obj");
 
+    // Edificios corporativos y torres residenciales
     edificioA = new Model((char*)"../assets/obj/Polanco/EdificioA.obj");
     edificioB = new Model((char*)"../assets/obj/Polanco/EdificioB.obj");
     edificioBeige = new Model((char*)"../assets/obj/Polanco/EdificioBeige.obj");
@@ -114,7 +123,7 @@ void PolancoScene::Init() {
     torreCrisA = new Model((char*)"../assets/obj/Polanco/TorreCristalA.obj");
     torreCrisB = new Model((char*)"../assets/obj/Polanco/TorreCristalB.obj");
 
-    // Vidrio
+    // Asignación de reflectividad ambiental (envMap) en ventanales de edificios
     edificioA->SetReflectivityMaterial("Vidrio", 0.20f);
     edificioB->SetReflectivityMaterial("Vidrio", 0.20f);
     edificioC->SetReflectivityMaterial("Vidrio", 0.20f);
@@ -123,6 +132,7 @@ void PolancoScene::Init() {
     torreBal->SetReflectivityMaterial("Vidrio", 0.20f);
     torreCil->SetReflectivityMaterial("Vidrio", 0.20f);
 
+    // Vialidades y edificaciones complementarias
     carretera = new Model((char*)"../assets/obj/Polanco/Carretera.obj");
     carreteraCruce = new Model((char*)"../assets/obj/Polanco/CarreteraCruce.obj");
     edificio1 = new Model((char*)"../assets/obj/Polanco/edificio-01.obj");
@@ -130,10 +140,12 @@ void PolancoScene::Init() {
     casa1 = new Model((char*)"../assets/obj/Polanco/Casa_1.obj");
     casa2 = new Model((char*)"../assets/obj/Polanco/Casa_2.obj");
 
+    // Inicialización de semáforo desfasado respecto al ciclo de la ciclovía
     semaforo = new Semaforo();
     semaforo->Init();
     semaforo->tRojo = semaforo->tVerde + semaforo->tAmbar + 2.0f;
 
+    // Registro inicial de vehículos en ambos sentidos de circulación
     vehiculos.clear();
     vehiculos.push_back({ autoRojo,  -30.0f, -30.0f, +1.0f, 9.0f,  4.5f });
     vehiculos.push_back({ autobus,   -55.0f, -55.0f, +1.0f, 7.0f, 12.0f });
@@ -141,15 +153,18 @@ void PolancoScene::Init() {
     vehiculos.push_back({ autoNegro,  52.0f,  52.0f, -1.0f, 9.0f,  4.5f });
 }
 
+// Simula el avance de los vehículos respetando la luz roja, distancia de seguridad y ciclo continuo
 void PolancoScene::ActualizarVehiculos(float dt, bool verdeParaCarros) {
     for (size_t i = 0; i < vehiculos.size(); i++) {
         Vehiculo& v = vehiculos[i];
         float nuevo = v.u + v.dir * v.vel * dt;
 
+        // Detención antes de la línea de alto si el semáforo no está en verde
         float paro = -v.dir * (LINEA_ALTO + v.largo * 0.5f);
         bool cruzariaLinea = (v.dir > 0.0f) ? (v.u <= paro && nuevo > paro) : (v.u >= paro && nuevo < paro);
         if (cruzariaLinea && !verdeParaCarros) nuevo = paro;
 
+        // Prevención de colisiones manteniendo separación mínima con el vehículo delantero
         for (size_t j = 0; j < vehiculos.size(); j++) {
             if (j == i || vehiculos[j].dir != v.dir) continue;
             float adelante = (vehiculos[j].u - nuevo) * v.dir;
@@ -158,18 +173,21 @@ void PolancoScene::ActualizarVehiculos(float dt, bool verdeParaCarros) {
         }
         v.u = nuevo;
 
+        // Reinicio cíclico al salir de los extremos del cruce
         const float U = LARGO_CRUCE * 0.5f;
         if (v.dir > 0.0f && v.u > U) v.u = -U;
         else if (v.dir < 0.0f && v.u < -U) v.u = U;
     }
 }
 
+// Renderiza toda la zona urbana de Polanco alineada dinámicamente con la curvatura de Ruta
 void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
     Ruta::Muestra mInicio = Ruta::En(0.0f);
     glm::mat4 baseAlineada = worldMatrix;
     baseAlineada = glm::translate(baseAlineada, mInicio.pos);
     baseAlineada = glm::rotate(baseAlineada, glm::radians(mInicio.headingDeg), glm::vec3(0.0f, 1.0f, 0.0f));
 
+    // Calcula la matriz de transformación local siguiendo el eje longitudinal de la ruta
     auto Base = [&](float z) {
         if (z > 0.0f) return glm::translate(baseAlineada, glm::vec3(0.0f, 0.0f, z));
         Ruta::Muestra m = Ruta::En(-z);
@@ -185,7 +203,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
 
     glm::mat4 model(1.0f);
 
-    // 1. Museo Soumaya
+    // 1. Museo Soumaya (con alta reflectividad metálica en su fachada)
     if (museo) {
         model = Base(-70.0f);
         model = glm::translate(model, glm::vec3(-38.0f, -0.7f, 0.0f));
@@ -427,7 +445,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         semaforo->Draw(shader, modelLoc, m, t, semaforo->tVerde + semaforo->tAmbar);
     }
 
-    // 11. Cruce animado con vehículos
+    // 11. Cruce animado con vehículos (se activa al acercarse el ciclista al metro 200)
     {
         const float t = static_cast<float>(glfwGetTime());
         float dt = t - ultimoT;
@@ -435,6 +453,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         if (dt > 0.1f) dt = 0.1f;
         if (dt < 0.0f) dt = 0.0f;
 
+        // Activación y reinicio del ciclo de tráfico según proximidad del jugador
         if (cruceT0 < 0.0f && riderS >= CRUCE_S - DIST_ACTIVACION) {
             cruceT0 = t;
         }
@@ -448,9 +467,11 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         const float desfaseCarros = semaforo ? semaforo->tVerde + semaforo->tAmbar : 0.0f;
         Semaforo::Fase faseCarros = semaforo ? semaforo->FaseEn(tCiclo, desfaseCarros) : Semaforo::ROJO;
 
+        // Actualización de tráfico cediento el paso si el ciclista está dentro de la zona de cruce
         const bool biciEnCruce = std::fabs(riderS - CRUCE_S) < BICI_ZONA;
         if (activo) ActualizarVehiculos(dt, faseCarros == Semaforo::VERDE && !biciEnCruce);
 
+        // Renderizado de la intersección vial, vehículos y semáforos sincronizados
         if (carreteraCruce) {
             model = Base(-CRUCE_S);
             model = glm::translate(model, glm::vec3(14.0f, CRUCE_Y, 0.0f));
