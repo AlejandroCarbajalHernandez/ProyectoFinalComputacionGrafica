@@ -9,6 +9,7 @@ TepoztlanScene::TepoztlanScene() {
     kiosco = nullptr;
     letrero = nullptr;
     mercado = nullptr;
+    meta = nullptr;
     worldMatrix = glm::mat4(1.0f);
 }
 
@@ -19,6 +20,7 @@ TepoztlanScene::~TepoztlanScene() {
     delete kiosco;
     delete letrero;
     delete mercado;
+    delete meta;
 }
 
 void TepoztlanScene::Init() {
@@ -28,6 +30,7 @@ void TepoztlanScene::Init() {
     kiosco = new Model((char*)"../assets/obj/Kiosco/Kiosco.obj");
     letrero = new Model((char*)"../assets/obj/LetreroTepoztlan/LetreroTepoztlan.obj");
     mercado = new Model((char*)"../assets/obj/MercadoMunicipal/MercadoMunicipal.obj");
+    meta = new Model((char*)"../assets/obj/meta/meta.obj");
 }
 
 void TepoztlanScene::Draw(Shader& shader, GLint modelLoc) {
@@ -39,7 +42,13 @@ void TepoztlanScene::Draw(Shader& shader, GLint modelLoc) {
         m = glm::rotate(m, glm::radians(rotacionY), glm::vec3(0.0f, 1.0f, 0.0f));
         return m;
         };
-    
+
+    if (meta) {
+        model = Base(glm::vec3(0.0f, 0.02f, -6.0f), 0.0f);
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        meta->Draw(shader);
+    }
+
     if (letrero) {
         model = Base(glm::vec3(13.5f, -0.5f, 5.0f), -18.0f);
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
@@ -57,6 +66,7 @@ void TepoztlanScene::Draw(Shader& shader, GLint modelLoc) {
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         kiosco->Draw(shader);
     }
+
     if (mercado) {
         model = Base(glm::vec3(40.0f, 0.3f, -40.0f), -90.0f);
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));

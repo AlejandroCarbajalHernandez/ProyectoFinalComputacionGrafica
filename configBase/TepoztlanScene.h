@@ -23,6 +23,7 @@ private:
     Model* kiosco;
     Model* letrero;
     Model* mercado;
+    Model* meta;
 };
 
 #endif#pragma once
