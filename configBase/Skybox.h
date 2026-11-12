@@ -1,6 +1,6 @@
 #pragma once
-// Skybox.h - Cielo con cube map (texturizado de ambiente).
-// Carga 6 imagenes (una por cara del cubo) y dibuja un cubo alrededor de la camara.
+// Skybox.h: el cielo que rodea todo el escenario.
+// Carga 6 imágenes (una por cada lado de un cubo) y dibuja ese cubo alrededor de la cámara, como si fuera el cielo.
 #include <string>
 #include <iostream>
 #include <GL/glew.h>
@@ -9,21 +9,24 @@
 #include "SOIL2/SOIL2.h"
 #include "Shader.h"
 
+// El cielo del escenario: sus imágenes, su forma de cubo y el programa que lo dibuja.
 class Skybox {
 public:
+    // Datos del cielo ya preparados para dibujarse.
     GLuint cubemap = 0;
     GLuint vao = 0, vbo = 0;
     Shader* shader = nullptr;
 
-    // 'carpeta' contiene derecha, izquierda, arriba, abajo, frente y atras (.png)
+    // Carga el cielo desde una carpeta que trae seis imágenes: derecha, izquierda, arriba, abajo, frente y atrás.
     bool Init(const std::string& carpeta) {
         shader = new Shader("Shader/skybox.vs", "Shader/skybox.frag");
 
-        // Orden de las caras en OpenGL: +X, -X, +Y, -Y, +Z, -Z
+        // Orden en que OpenGL espera los seis lados del cubo.
         const char* caras[6] = { "derecha", "izquierda", "arriba", "abajo", "frente", "atras" };
 
         glGenTextures(1, &cubemap);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
+        // Se carga cada una de las seis imágenes; si alguna falta, se avisa y se cancela.
         for (int i = 0; i < 6; i++) {
             std::string ruta = carpeta + "/" + caras[i] + ".png";
             int ancho, alto;
@@ -35,13 +38,14 @@ public:
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, ancho, alto, 0, GL_RGB, GL_UNSIGNED_BYTE, img);
             SOIL_free_image_data(img);
         }
+        // Se suavizan las imágenes y se evita que se noten las uniones entre los lados.
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-        // Cubo unitario (36 vertices, solo posicion)
+        // Los puntos que forman el cubo del cielo.
         float v[] = {
             -1, 1,-1, -1,-1,-1,  1,-1,-1,  1,-1,-1,  1, 1,-1, -1, 1,-1,
             -1,-1, 1, -1,-1,-1, -1, 1,-1, -1, 1,-1, -1, 1, 1, -1,-1, 1,
@@ -61,7 +65,7 @@ public:
         return true;
     }
 
-    // Se dibuja antes que la escena. La vista se usa sin traslacion para que el cielo no se acerque.
+    // Dibuja el cielo antes que el resto de la escena. No sigue los pasos de la cámara, para que siempre se vea lejano.
     void Draw(const glm::mat4& view, const glm::mat4& projection) {
         glDepthFunc(GL_LEQUAL);
         shader->Use();
@@ -77,6 +81,7 @@ public:
         glDepthFunc(GL_LESS);
     }
 
+    // Al terminar se libera de la memoria todo lo del cielo.
     ~Skybox() {
         delete shader;
         if (vao) glDeleteVertexArrays(1, &vao);

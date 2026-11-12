@@ -1,3 +1,7 @@
+// Reglas del juego: llantas, hidratación, objetos del camino y puntaje.
+// El ciclista recorre la ruta de Polanco a Tepoztlán y se le va gastando el aire
+// de las llantas y el agua. Esta clase decide qué pasa en cada momento y dibuja
+// los objetos del juego (botellas, clavos y bombas de aire).
 #pragma once
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -12,47 +16,70 @@
 #include "Shader.h"
 #include "Model.h"
 
+// Estados posibles de la partida.
 enum GameStatus {
+    // La partida sigue en curso
     STATUS_JUGANDO,
+    // Perdió: se quedó sin aire en las llantas
     STATUS_GAME_OVER_PONCHADURA,
+    // Perdió: se quedó sin agua
     STATUS_GAME_OVER_DESHIDRATACION,
+    // Ganó: llegó a Tepoztlán
     STATUS_VICTORIA
 };
 
+// En los objetos del camino, "s" es la distancia recorrida sobre la ruta (en metros
+// desde la salida) y "lateral" es qué tan a la izquierda o derecha del centro está.
+
+// Botella de agua que el ciclista recoge para hidratarse.
 struct AnforaAgua {
     float s;
     float lateral;
+    // Ya fue recogida (deja de dibujarse)
     bool recogida;
 };
 
+// Clavos en el piso que le sacan aire a la llanta.
 struct PeligroClavos {
     float s;
     float lateral;
+    // Ya se pisaron (dejan de dibujarse)
     bool activado;
 };
 
+// Bomba de aire a la orilla del camino para volver a inflar las llantas.
 struct TallerInflado {
     float s;
     float lateral;
     bool activo;
 };
 
+// Controla toda la lógica de la partida.
 class GameLogic {
 public:
+    // Aire actual de las llantas (35 es el máximo)
     float psi;
     const float PSI_MAX = 35.0f;
+    // Hidratación actual (100 es el máximo)
     float agua;
     const float AGUA_MAX = 100.0f;
+    // Botellas recogidas (suman puntos)
     int anforasRecogidas;
+    // Clavos pisados (restan puntos)
     int clavosAtropellados;
+    // Segundos transcurridos en la partida
     float tiempoTotal;
+    // Si se sigue jugando, se ganó o se perdió
     GameStatus estado;
 
+    // Objetos repartidos por la ruta
     std::vector<AnforaAgua> anforas;
     std::vector<PeligroClavos> clavos;
     std::vector<TallerInflado> talleres;
 
+    // Tiempo que dura el aviso en pantalla al pisar un clavo
     float alertaDanioTimer;
+    // Indica si en este momento se está inflando la llanta
     bool inflandoActualmente;
 
     // Punteros a los modelos 3D
@@ -60,6 +87,7 @@ public:
     Model* clavosModel;
     Model* bombaModel;
 
+    // Al crear el juego se dejan los modelos vacíos y se arma una partida nueva.
     GameLogic() {
         botellaModel = nullptr;
         clavosModel = nullptr;
@@ -67,6 +95,7 @@ public:
         Reiniciar();
     }
 
+    // Libera los modelos de memoria al cerrar el programa.
     ~GameLogic() {
         delete botellaModel;
         delete clavosModel;
@@ -84,6 +113,8 @@ public:
         std::cout << "========================================\n" << std::endl;
     }
 
+    // Deja todo como al inicio: llantas y agua llenas, contadores en cero
+    // y todos los objetos del camino colocados de nuevo en su lugar.
     void Reiniciar() {
         psi = PSI_MAX;
         agua = AGUA_MAX;
@@ -121,13 +152,20 @@ public:
         talleres.push_back({ 415.0f, -1.8f, true });
     }
 
+    // Avanza el juego un instante (se llama en cada cuadro).
+    // Recibe el tiempo transcurrido, dónde va el ciclista y qué tan rápido pedalea.
+    // Regresa un valor de 0 a 1 que indica qué tan bien rueda la bici: 1 con llantas
+    // bien infladas y menos si están bajas (0 si la partida ya terminó).
     float Actualizar(float dt, float sJugador, float lateralJugador, float velocidadBici = 0.0f, float pendienteRuta = 0.0f) {
+        // Si la partida ya terminó, no hay nada que calcular
         if (estado != STATUS_JUGANDO) return 0.0f;
 
         tiempoTotal += dt;
         if (alertaDanioTimer > 0.0f) alertaDanioTimer -= dt;
         inflandoActualmente = false;
 
+        // Desgaste de las llantas: salirse de la pista las desgasta más,
+        // la terracería también y la calle casi nada.
         bool fueraDePista = std::abs(lateralJugador) > 1.35f;
         bool enTerraceria = (sJugador >= 415.0f);
 
@@ -141,8 +179,10 @@ public:
             psi -= 0.15f * dt;
         }
 
+        // Consumo de agua: se gasta poco a poco y más rápido mientras más veloz va el ciclista.
         agua -= (1.2f + (velocidadBici * 0.06f)) * dt;
 
+        // Recoger botellas: si el ciclista pasa muy cerca de una, la recoge y recupera agua.
         for (auto& anf : anforas) {
             if (!anf.recogida) {
                 float ds = std::abs(anf.s - sJugador);
@@ -155,6 +195,7 @@ public:
             }
         }
 
+        // Pisar clavos: cada uno le quita aire a la llanta y activa el aviso en pantalla.
         for (auto& cl : clavos) {
             if (!cl.activado) {
                 float ds = std::abs(cl.s - sJugador);
@@ -168,6 +209,7 @@ public:
             }
         }
 
+        // Inflar llantas: si el ciclista casi se detiene junto a una bomba, la llanta se infla.
         for (auto& tal : talleres) {
             float ds = std::abs(tal.s - sJugador);
             float dl = std::abs(tal.lateral - lateralJugador);
@@ -179,6 +221,7 @@ public:
             }
         }
 
+        // Derrota: sin aire en las llantas o sin agua termina la partida.
         if (psi <= 0.0f) {
             psi = 0.0f;
             estado = STATUS_GAME_OVER_PONCHADURA;
@@ -190,20 +233,26 @@ public:
             return 0.0f;
         }
 
+        // Victoria: se gana al llegar a la parte final de la ruta, dentro de la calle de Tepoztlán.
         bool enCalleTepoztlan = std::abs(lateralJugador) <= 2.2f;
         if (sJugador >= 480.0f && enCalleTepoztlan) {
             estado = STATUS_VICTORIA;
             return 0.0f;
         }
 
+        // Qué tan bien rueda la bici según el aire de las llantas (1 es lo normal).
         if (psi < 12.0f) return 0.40f;
         if (psi < 22.0f) return 0.70f;
         return 1.0f;
     }
 
+    // Dibuja en pantalla las botellas, los clavos y las bombas de aire.
     void DrawEntidades(Shader& shader, GLint modelLoc) {
+        // Tiempo actual, se usa para animar las botellas.
         float t = (float)glfwGetTime();
 
+        // Convierte una posición de la ruta (distancia y lado) en un punto del mundo 3D,
+        // pegado al suelo.
         auto getCoord = [](float s, float lateral) {
             Ruta::Muestra p = Ruta::En(s);
             float th = glm::radians(p.headingDeg);
@@ -214,21 +263,22 @@ public:
 
         GLint useColorLoc = glGetUniformLocation(shader.Program, "useColor");
         GLint meshColorLoc = glGetUniformLocation(shader.Program, "meshColor");
+        // Estos objetos se pintan con un color sólido.
         glUniform1i(useColorLoc, 1);
 
-        // =========================================================================
-        // 1. ÁNFORAS / BOTELLAS (Escala x2.2 para que resalte como coleccionable)
-        // =========================================================================
+        // 1. Botellas de agua: flotan y giran sobre el carril y se ven más grandes para que se noten.
         if (botellaModel) {
             glUniform3f(meshColorLoc, 0.15f, 0.75f, 1.0f); // Azul cian brillante
             for (const auto& anf : anforas) {
                 if (!anf.recogida) {
                     glm::vec3 p = getCoord(anf.s, anf.lateral);
+                    // La botella sube y baja suavemente.
                     float flotacion = std::sin(t * 3.5f + anf.s) * 0.06f;
                     p.y += 0.55f + flotacion; // Altura visible flotando en el carril
 
                     glm::mat4 m(1.0f);
                     m = glm::translate(m, p);
+                    // Gira sobre sí misma.
                     m = glm::rotate(m, t * 2.5f, glm::vec3(0.0f, 1.0f, 0.0f));
                     m = glm::scale(m, glm::vec3(2.2f)); // Aumentada de 0.95f a 2.2f
 
@@ -238,9 +288,7 @@ public:
             }
         }
 
-        // =========================================================================
-        // 2. TRAMPAS DE CLAVOS (Escala ampliada para máxima visibilidad en pista)
-        // =========================================================================
+        // 2. Clavos en el piso: se dibujan en rojo, grandes y alineados con la pista.
         if (clavosModel) {
             glUniform3f(meshColorLoc, 0.95f, 0.15f, 0.15f); // Rojo peligro
             for (const auto& cl : clavos) {
@@ -249,7 +297,7 @@ public:
                     Ruta::Muestra mRuta = Ruta::En(cl.s);
 
                     glm::mat4 m(1.0f);
-                    // Elevamos a +0.09f para evitar z-fighting con la escala mayor
+                    // Se levantan apenas del asfalto para que no se mezclen con él visualmente
                     m = glm::translate(m, p + glm::vec3(0.0f, 0.09f, 0.0f));
                     m = glm::rotate(m, glm::radians(mRuta.headingDeg), glm::vec3(0.0f, 1.0f, 0.0f));
                     m = glm::scale(m, glm::vec3(4.5f)); // Incrementado a 4.5f
@@ -260,9 +308,7 @@ public:
             }
         }
 
-        // =========================================================================
-        // 3. BOMBA DE AIRE / TALLER (Ajustada proporcionalmente a la orilla)
-        // =========================================================================
+        // 3. Bombas de aire: a la orilla del camino, de frente a la pista.
         if (bombaModel) {
             glUniform3f(meshColorLoc, 1.0f, 0.85f, 0.10f); // Amarillo Truper
             for (const auto& tal : talleres) {
@@ -271,6 +317,7 @@ public:
 
                 glm::mat4 m(1.0f);
                 m = glm::translate(m, p + glm::vec3(0.0f, 0.02f, 0.0f));
+                // Se gira para quedar mirando hacia la pista.
                 float giroLateral = (tal.lateral > 0.0f) ? -90.0f : 90.0f;
                 m = glm::rotate(m, glm::radians(mRuta.headingDeg + giroLateral), glm::vec3(0.0f, 1.0f, 0.0f));
                 m = glm::scale(m, glm::vec3(1.25f)); // Ligeramente más grande para facilitar verla
