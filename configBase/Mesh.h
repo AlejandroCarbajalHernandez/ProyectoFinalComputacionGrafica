@@ -1,3 +1,5 @@
+// Mesh.h: una pieza de un modelo 3D.
+// Guarda sus puntos, sus imágenes y su color, y sabe dibujarse en pantalla.
 #pragma once
 
 #include <string>
@@ -9,164 +11,164 @@
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-
-
 
 #include "Shader.h"
 
 using namespace std;
 
-struct Vertex
-{
-	// Position
-	glm::vec3 Position;
-	// Normal
-	glm::vec3 Normal;
-	// TexCoords
-	glm::vec2 TexCoords;
-	// Hueso (segmento rigido) al que pertenece el vertice, para animar el cuerpo
-	float BoneId;
+// Un punto del modelo: dónde está, hacia dónde mira su superficie, qué parte de la imagen le toca y a qué parte del cuerpo pertenece.
+struct Vertex {
+    glm::vec3 Position;
+    glm::vec3 Normal;
+    glm::vec2 TexCoords;
+    float BoneID = 0.0f; // Coincide con layout (location = 3) in float boneId
 };
 
-struct Texture
-{
-	GLuint id;
-	string type;
-	aiString path;
+// Una imagen que se usa para pintar la pieza.
+struct Texture {
+    GLuint id;
+    string type;
+    string path;
 };
 
-class Mesh
-{
+// Una pieza del modelo, lista para dibujarse.
+class Mesh {
 public:
-	/*  Mesh Data  */
-	vector<Vertex> vertices;
-	vector<GLuint> indices;
-	vector<Texture> textures;
-	// Color base (Kd del .mtl) que se usa cuando el material no tiene textura
-	glm::vec3 baseColor;
-	// Nombre del objeto en el .obj (sirve para animar piezas sueltas, como las ruedas)
-	string name;
+    // Los puntos de la pieza, el orden en que se unen para formar triángulos y sus imágenes.
+    vector<Vertex> vertices;
+    vector<GLuint> indices;
+    vector<Texture> textures;
+    // Color liso, nombre de la pieza y del material, y qué tanto refleja el entorno.
+    glm::vec3 baseColor;
+    string name;
+    string materialName;
+    float reflectivity = 0.0f;
 
-	/*  Functions  */
-	// Constructor
-	Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures, glm::vec3 baseColor = glm::vec3(0.8f), string name = "")
-	{
-		this->name = name;
-		this->baseColor = baseColor;
-		this->vertices = vertices;
-		this->indices = indices;
-		this->textures = textures;
+    // Crea la pieza con sus datos y la deja lista para dibujarse.
+    Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures,
+        glm::vec3 baseColor = glm::vec3(1.0f), string name = "", string materialName = "")
+    {
+        this->vertices = vertices;
+        this->indices = indices;
+        this->textures = textures;
+        this->baseColor = baseColor;
+        this->name = name;
+        this->materialName = materialName;
 
-		// Now that we have all the required data, set the vertex buffers and its attribute pointers.
-		this->setupMesh();
-	}
+        this->setupMesh();
+    }
 
-	// Render the mesh
-	// Vuelve a subir los vertices a la GPU (despues de cambiar BoneId)
-	void UploadVertices()
-	{
-		glBindVertexArray(this->VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
-		glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(Vertex), &this->vertices[0], GL_STATIC_DRAW);
-		glBindVertexArray(0);
-	}
+    // Dibuja la pieza en pantalla.
+    void Draw(Shader shader)
+    {
+        // Contadores para numerar las imágenes de la pieza.
+        GLuint diffuseNr = 1;
+        GLuint specularNr = 1;
 
-	void Draw(Shader shader)
-	{
-		// Bind appropriate textures
-		GLuint diffuseNr = 1;
-		GLuint specularNr = 1;
+        if (this->textures.empty())
+        {
+            // Si la pieza no tiene imagen, se pinta de un solo color (bicicleta, ciclista, piezas lisas).
+            glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
+            glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), this->baseColor.r, this->baseColor.g, this->baseColor.b);
+        }
+        else
+        {
+            // Si la pieza tiene imagen, se usa para pintarla.
+            glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
 
-		for (GLuint i = 0; i < this->textures.size(); i++)
-		{
-			glActiveTexture(GL_TEXTURE0 + i); // Active proper texture unit before binding
-											  // Retrieve texture number (the N in diffuse_textureN)
-			stringstream ss;
-			string number;
-			string name = this->textures[i].type;
+            for (GLuint i = 0; i < this->textures.size(); i++)
+            {
+                glActiveTexture(GL_TEXTURE0 + i);
+                stringstream ss;
+                string number;
+                string tName = this->textures[i].type;
+                if (tName == "texture_diffuse")
+                    ss << diffuseNr++;
+                else if (tName == "texture_specular")
+                    ss << specularNr++;
+                number = ss.str();
 
-			if (name == "texture_diffuse")
-			{
-				ss << diffuseNr++; // Transfer GLuint to stream
-			}
-			else if (name == "texture_specular")
-			{
-				ss << specularNr++; // Transfer GLuint to stream
-			}
+                glUniform1i(glGetUniformLocation(shader.Program, (tName + number).c_str()), i);
+                glBindTexture(GL_TEXTURE_2D, this->textures[i].id);
+            }
+        }
 
-			number = ss.str();
-			// Now set the sampler to the correct texture unit
-			glUniform1i(glGetUniformLocation(shader.Program, (name + number).c_str()), i);
-			// And finally bind the texture
-			glBindTexture(GL_TEXTURE_2D, this->textures[i].id);
-		}
+        // Se indica qué tan brillante y qué tan reflejante es la pieza.
+        glUniform1f(glGetUniformLocation(shader.Program, "material.shininess"), 16.0f);
+        glUniform1f(glGetUniformLocation(shader.Program, "materialReflect"), this->reflectivity);
 
-		// Si no hay textura difusa, el shader usa el color base del material
-		
-		
-		bool hasDiffuse = false;
-		for (GLuint i = 0; i < this->textures.size(); i++)
-			if (this->textures[i].type == "texture_diffuse") hasDiffuse = true;
-		glUniform1i(glGetUniformLocation(shader.Program, "useColor"), hasDiffuse ? 0 : 1);
-		glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), this->baseColor.r, this->baseColor.g, this->baseColor.b);
+        // Se dibuja la pieza.
+        glBindVertexArray(this->VAO);
+        glDrawElements(GL_TRIANGLES, (GLsizei)this->indices.size(), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
 
-		// Also set each mesh's shininess property to a default value (if you want you could extend this to another mesh property and possibly change this value)
-		glUniform1f(glGetUniformLocation(shader.Program, "material.shininess"), 16.0f);
+        // Al terminar se sueltan las imágenes para que no afecten a otras piezas.
+        if (!this->textures.empty())
+        {
+            for (GLuint i = 0; i < this->textures.size(); i++)
+            {
+                glActiveTexture(GL_TEXTURE0 + i);
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+        }
+    }
 
-		// Draw mesh
-		glBindVertexArray(this->VAO);
-		glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
+    // Decide a qué parte del cuerpo (ala, pierna, brazo, etc.) pertenece cada punto del modelo, para poder animarlo.
+    template<typename Func>
+    void AssignBones(Func boneFunc)
+    {
+        glBindVertexArray(this->VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
 
-		// Always good practice to set everything back to defaults once configured.
-		for (GLuint i = 0; i < this->textures.size(); i++)
-		{
-			glActiveTexture(GL_TEXTURE0 + i);
-			glBindTexture(GL_TEXTURE_2D, 0);
-		}
-	}
+        for (size_t i = 0; i < this->vertices.size(); i++)
+        {
+            this->vertices[i].BoneID = static_cast<float>(boneFunc(this->vertices[i].Position));
+        }
+
+        // Se vuelven a guardar los datos del modelo con esa información nueva.
+        glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(Vertex), &this->vertices[0], GL_STATIC_DRAW);
+
+        // Se indica cómo leer la parte del cuerpo de cada punto.
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, BoneID));
+
+        glBindVertexArray(0);
+    }
 
 private:
-	/*  Render data  */
-	GLuint VAO, VBO, EBO;
+    // Identificadores internos donde OpenGL guarda los datos de la pieza.
+    GLuint VAO, VBO, EBO;
 
-	/*  Functions    */
-	// Initializes all the buffer objects/arrays
-	void setupMesh()
-	{
-		// Create buffers/arrays
-		glGenVertexArrays(1, &this->VAO);
-		glGenBuffers(1, &this->VBO);
-		glGenBuffers(1, &this->EBO);
+    // Envía los datos de la pieza a la tarjeta gráfica para poder dibujarla.
+    void setupMesh()
+    {
+        glGenVertexArrays(1, &this->VAO);
+        glGenBuffers(1, &this->VBO);
+        glGenBuffers(1, &this->EBO);
 
-		glBindVertexArray(this->VAO);
-		// Load data into vertex buffers
-		glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
-		// A great thing about structs is that their memory layout is sequential for all its items.
-		// The effect is that we can simply pass a pointer to the struct and it translates perfectly to a glm::vec3/2 array which
-		// again translates to 3/2 floats which translates to a byte array.
-		glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(Vertex), &this->vertices[0], GL_STATIC_DRAW);
+        glBindVertexArray(this->VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+        glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(Vertex), &this->vertices[0], GL_STATIC_DRAW);
 
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->indices.size() * sizeof(GLuint), &this->indices[0], GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->indices.size() * sizeof(GLuint), &this->indices[0], GL_STATIC_DRAW);
 
-		// Set the vertex attribute pointers
-		// Vertex Positions
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *)0);
-		// Vertex Normals
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *)offsetof(Vertex, Normal));
-		// Vertex Texture Coords
-		glEnableVertexAttribArray(2);
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *)offsetof(Vertex, TexCoords));
-		// Bone id
-		glEnableVertexAttribArray(3);
-		glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *)offsetof(Vertex, BoneId));
+        // Se indica cómo leer la posición de cada punto.
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 
-		glBindVertexArray(0);
-	}
+        // Se indica cómo leer hacia dónde mira la superficie en cada punto (para la luz).
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+
+        // Se indica cómo leer qué parte de la imagen le toca a cada punto.
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
+
+        // Se indica cómo leer la parte del cuerpo de cada punto (empieza en 0 por defecto).
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, BoneID));
+
+        glBindVertexArray(0);
+    }
 };
