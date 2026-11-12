@@ -40,6 +40,8 @@ Skybox skybox;
 
 const float HEADLIGHT = 0.25f;
 bool faroEncendido = true;
+bool esDeNoche = false;
+float factorDia = 1.0f; // 1 = día, 0 = noche (cambia suavemente)
 const glm::vec3 SUN_DIR(-0.25f, -0.75f, -0.60f);
 
 glm::vec3 startPosition(0.0f);
@@ -131,6 +133,11 @@ int main() {
         glfwPollEvents();
         DoMovement();
 
+        float objetivoDia = esDeNoche ? 0.0f : 1.0f;
+        float pasoDia = deltaTime / 18.0f;   // 18 s para pasar de día a noche
+        if (factorDia < objetivoDia) factorDia = std::min(objetivoDia, factorDia + pasoDia);
+        else                         factorDia = std::max(objetivoDia, factorDia - pasoDia);
+
         if (game.alertaDanioTimer > 0.0f) {
             glClearColor(0.85f, 0.35f, 0.30f, 1.0f);
         }
@@ -143,13 +150,16 @@ int main() {
 
         // 1. Sol
         glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), 0.38f, 0.40f, 0.45f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), 0.85f, 0.82f, 0.72f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), 0.20f, 0.20f, 0.20f);
+        glm::vec3 ambiente = glm::mix(glm::vec3(0.10f, 0.11f, 0.22f), glm::vec3(0.38f, 0.40f, 0.45f), factorDia);
+        glm::vec3 difusa = glm::mix(glm::vec3(0.08f, 0.10f, 0.22f), glm::vec3(0.85f, 0.82f, 0.72f), factorDia);
+        float especular = glm::mix(0.03f, 0.20f, factorDia);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), ambiente.x, ambiente.y, ambiente.z);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), difusa.x, difusa.y, difusa.z);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), especular, especular, especular);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 16.0f);
 
         // 2. Faro
-        float faro = faroEncendido ? HEADLIGHT : 0.0f;
+        float faro = faroEncendido ? HEADLIGHT * (1.0f + 5.0f * (1.0f - factorDia)) : 0.0f;
         glm::vec3 front = player.GetFrontVector();
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.position"), player.position.x, player.position.y + 0.6f, player.position.z);
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.direction"), front.x, -0.1f, front.z);
@@ -214,6 +224,9 @@ int main() {
 
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+        skybox.shader->Use();
+        glUniform1f(glGetUniformLocation(skybox.shader->Program, "brillo"), factorDia);
 
         skybox.Draw(view, projection);
         glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
@@ -371,6 +384,7 @@ int main() {
                     "SHIFT ............... IMPULSO",
                     "C ................... CAMBIAR CAMARA",
                     "F ................... FARO ON/OFF",
+                    "N ................... DIA / NOCHE",
                     "1 A 5 ............... SALTAR A UNA ZONA",
                     "R ................... REINICIAR",
                     "T ................... RECORRIDO AUTOMATICO",
@@ -379,7 +393,7 @@ int main() {
                 float yc = H * 0.66f;
                 for (const char* linea : controles) {
                     Texto::Dibujar(linea, W * 0.5f - 270.0f, yc, 2.5f, BLANCO, W, H);
-                    yc -= 26.0f;
+                    yc -= 24.0f;
                 }
 
                 centrado("OBJETIVO: LLEGA A TEPOZTLAN SIN PONCHAR NI DESHIDRATARTE", H * 0.25f, 2.5f, AMARILLO);
@@ -598,6 +612,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
         ResetToStart();
     }
     if (key == GLFW_KEY_F && action == GLFW_PRESS) { faroEncendido = !faroEncendido; }
+    if (key == GLFW_KEY_N && action == GLFW_PRESS) { esDeNoche = !esDeNoche; }
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         PrintPosition();
     }
