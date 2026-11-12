@@ -39,6 +39,9 @@ GameLogic game;
 Skybox skybox;
 
 const float HEADLIGHT = 0.25f;
+bool faroEncendido = true;
+bool esDeNoche = false;
+float factorDia = 1.0f; // 1 = día, 0 = noche (cambia suavemente)
 const glm::vec3 SUN_DIR(-0.25f, -0.75f, -0.60f);
 
 glm::vec3 startPosition(0.0f);
@@ -130,6 +133,11 @@ int main() {
         glfwPollEvents();
         DoMovement();
 
+        float objetivoDia = esDeNoche ? 0.0f : 1.0f;
+        float pasoDia = deltaTime / 18.0f;   // 18 s para pasar de día a noche
+        if (factorDia < objetivoDia) factorDia = std::min(objetivoDia, factorDia + pasoDia);
+        else                         factorDia = std::max(objetivoDia, factorDia - pasoDia);
+
         if (game.alertaDanioTimer > 0.0f) {
             glClearColor(0.85f, 0.35f, 0.30f, 1.0f);
         }
@@ -142,18 +150,22 @@ int main() {
 
         // 1. Sol
         glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.direction"), SUN_DIR.x, SUN_DIR.y, SUN_DIR.z);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), 0.38f, 0.40f, 0.45f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), 0.85f, 0.82f, 0.72f);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), 0.20f, 0.20f, 0.20f);
+        glm::vec3 ambiente = glm::mix(glm::vec3(0.10f, 0.11f, 0.22f), glm::vec3(0.38f, 0.40f, 0.45f), factorDia);
+        glm::vec3 difusa = glm::mix(glm::vec3(0.08f, 0.10f, 0.22f), glm::vec3(0.85f, 0.82f, 0.72f), factorDia);
+        float especular = glm::mix(0.03f, 0.20f, factorDia);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.ambient"), ambiente.x, ambiente.y, ambiente.z);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.diffuse"), difusa.x, difusa.y, difusa.z);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "dirLight.specular"), especular, especular, especular);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 16.0f);
 
         // 2. Faro
+        float faro = faroEncendido ? HEADLIGHT * (1.0f + 5.0f * (1.0f - factorDia)) : 0.0f;
         glm::vec3 front = player.GetFrontVector();
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.position"), player.position.x, player.position.y + 0.6f, player.position.z);
         glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.direction"), front.x, -0.1f, front.z);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f * HEADLIGHT, 0.1f * HEADLIGHT, 0.1f * HEADLIGHT);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f * HEADLIGHT, 0.9f * HEADLIGHT, 0.8f * HEADLIGHT);
-        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f * HEADLIGHT, 0.4f * HEADLIGHT, 0.4f * HEADLIGHT);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.ambient"), 0.1f * faro, 0.1f * faro, 0.1f * faro);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.diffuse"), 0.9f * faro, 0.9f * faro, 0.8f * faro);
+        glUniform3f(glGetUniformLocation(lightingShader.Program, "spotLight.specular"), 0.4f * faro, 0.4f * faro, 0.4f * faro);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.constant"), 1.0f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.linear"), 0.07f);
         glUniform1f(glGetUniformLocation(lightingShader.Program, "spotLight.quadratic"), 0.017f);
@@ -197,7 +209,7 @@ int main() {
 
         glUniform3f(glGetUniformLocation(lightingShader.Program, "viewPos"), eyePos.x, eyePos.y, eyePos.z);
 
-        // Niebla del bosque (transición suave)
+        // Niebla del bosque: aparece al entrar (s 210) y se disipa antes del árido (s 320)
         auto suave = [](float a, float b, float x) {
             float t = glm::clamp((x - a) / (b - a), 0.0f, 1.0f);
             return t * t * (3.0f - 2.0f * t);
@@ -212,6 +224,9 @@ int main() {
 
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+        skybox.shader->Use();
+        glUniform1f(glGetUniformLocation(skybox.shader->Program, "brillo"), factorDia);
 
         skybox.Draw(view, projection);
         glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
@@ -263,6 +278,7 @@ int main() {
                 + "  MULTAS: " + std::to_string(multasSemaforo),
                 32.0f, H - 92.0f, 2.0f, BLANCO, W, H);
 
+            // Aviso grande de multa
             if (avisoTimer > 0.0f && game.estado == STATUS_JUGANDO) {
                 centrado(avisoTexto, H * 0.45f, 4.0f, glm::vec4(1.0f, 0.3f, 0.3f, std::min(1.0f, avisoTimer)));
             }
@@ -315,7 +331,7 @@ int main() {
                 centrado(nombres[z], H * 0.62f, 5.0f, glm::vec4(1.0f, 0.85f, 0.2f, a));
             }
 
-            // Fin de Juego / Victoria
+            // Fin de Juego / Victoria con Estadísticas Completas
             if (game.estado != STATUS_JUGANDO) {
                 const glm::vec4 VERDE(0.3f, 1.0f, 0.4f, 1.0f), ROJO(1.0f, 0.3f, 0.3f, 1.0f);
                 if (game.estado == STATUS_VICTORIA) {
@@ -338,6 +354,7 @@ int main() {
 
                     centrado("PUNTOS: " + std::to_string(puntos) + "   " + calif, H * 0.30f, 4.0f, AMARILLO);
 
+                    // Botón para modo exploración
                     float btnW = 380.0f, btnH = 38.0f;
                     float btnX = (W - btnW) * 0.5f;
                     float btnY = H * 0.22f;
@@ -366,15 +383,17 @@ int main() {
                     "A D / FLECHAS ....... GIRAR",
                     "SHIFT ............... IMPULSO",
                     "C ................... CAMBIAR CAMARA",
+                    "F ................... FARO ON/OFF",
+                    "N ................... DIA / NOCHE",
                     "1 A 5 ............... SALTAR A UNA ZONA",
                     "R ................... REINICIAR",
                     "T ................... RECORRIDO AUTOMATICO",
                     "H ................... AYUDA",
                     "ESC ................. SALIR" };
-                float yc = H * 0.64f;
+                float yc = H * 0.66f;
                 for (const char* linea : controles) {
                     Texto::Dibujar(linea, W * 0.5f - 270.0f, yc, 2.5f, BLANCO, W, H);
-                    yc -= 28.0f;
+                    yc -= 24.0f;
                 }
 
                 centrado("OBJETIVO: LLEGA A TEPOZTLAN SIN PONCHAR NI DESHIDRATARTE", H * 0.25f, 2.5f, AMARILLO);
@@ -449,7 +468,6 @@ void DoMovement() {
     }
 
     PolancoScene::riderS = sActual;
-
     GameStatus estadoAnterior = game.estado;
     float psiGuardado = game.psi;
     float aguaGuardada = game.agua;
@@ -500,6 +518,7 @@ void DoMovement() {
         }
     }
 
+    // Controles y Piloto Automático
     if (game.estado == STATUS_GAME_OVER_PONCHADURA || game.estado == STATUS_GAME_OVER_DESHIDRATACION) {
         // Bloqueado
     }
@@ -592,7 +611,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
     if ((key == GLFW_KEY_2 || key == GLFW_KEY_R) && action == GLFW_PRESS) {
         ResetToStart();
     }
-
+    if (key == GLFW_KEY_F && action == GLFW_PRESS) { faroEncendido = !faroEncendido; }
+    if (key == GLFW_KEY_N && action == GLFW_PRESS) { esDeNoche = !esDeNoche; }
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         PrintPosition();
     }
