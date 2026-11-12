@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include "Shader.h"
 #include "Model.h"
+#include "Semaforo.h"
 
 class PolancoScene {
 public:
@@ -17,23 +18,32 @@ public:
     Model* vias;
     Model* arbol;
     Model* luminaria;
-    Model* camellon;     // Declarado como puntero
+    Model* camellon;
     Model* autoRojo;
     Model* autoNegro;
     Model* autobus;
 
     Model* edificioA;
     Model* edificioB;
-    Model* edificioBeige; // Declarado como puntero
+    Model* edificioBeige;
     Model* edificioC;
     Model* techoVerde;
     Model* torreCil;
     Model* torreBal;
     Model* torreCrisA;
     Model* torreCrisB;
+    Model* carreteraCruce;
     Model* carretera;
+    Model* edificio1;
+    Model* edificio2;
+    Model* casa1;
+    Model* casa2;
+    Semaforo* semaforo;
 
     glm::mat4 worldMatrix = glm::mat4(1.0f);
+
+    // Avance de la bici sobre la ruta (m). main.cpp lo actualiza en cada cuadro
+    static float riderS;
 
     PolancoScene();
     ~PolancoScene();
@@ -50,4 +60,18 @@ public:
     static const Viewpoint& GetViewpoint(int index);
 
     glm::vec3 GetSpawnPosition() const { return GetViewpoint(0).pos; }
+
+private:
+    struct Vehiculo {
+        Model* modelo;
+        float u0;      // posición inicial
+        float u;       // posición actual
+        float dir;     // +1 o -1
+        float vel;     // m/s
+        float largo;   // largo (m)
+    };
+    std::vector<Vehiculo> vehiculos;
+    float cruceT0 = -1.0f;
+    float ultimoT = 0.0f;
+    void ActualizarVehiculos(float dt, bool verdeParaCarros);
 };

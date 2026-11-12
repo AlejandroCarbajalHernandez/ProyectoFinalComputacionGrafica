@@ -9,22 +9,21 @@
 #include "Semaforo.h"
 #include <algorithm>
 
-// Texturas de imagen (se cargan en Init)
+// Texturas de terreno
 static GLuint texPasto = 0;
 static GLuint texAsfalto = 0;
 static GLuint texTierra = 0;
 static GLuint texArena = 0;
 static GLuint texCalle = 0;
 static GLuint texPiso = 0;
-static int terrVertsHasta475 = 0;   // vértices de la terracería antes de Tepoztlán (para separar la calle)
+static int terrVertsHasta475 = 0;
 
-
-// Franja de suelo a lo largo de la ruta (de sIni a sFin, anchoLat metros a cada lado), con textura plana
 static GLuint pisoVAO = 0, pisoVBO = 0;
 static int pisoCount = 0;
 
 static void ConstruirFranja(float sIni, float sFin, float anchoLat, float escala,
-    GLuint& vao, GLuint& vbo, int& cuenta) {
+    GLuint& vao, GLuint& vbo, int& cuenta)
+{
     std::vector<float> verts;
     const float PASO_S = 2.5f;
     const int SUBDIV = 18;
@@ -51,6 +50,7 @@ static void ConstruirFranja(float sIni, float sFin, float anchoLat, float escala
                 float f[8] = { p.x, p.y, p.z, n.x, n.y, n.z, p.x / escala, p.z / escala };
                 verts.insert(verts.end(), f, f + 8);
                 };
+
             pushV(v00); pushV(v10); pushV(v11);
             pushV(v00); pushV(v11); pushV(v01);
         }
@@ -145,18 +145,19 @@ CicloviaScene::~CicloviaScene() {
     if (aridVBO)    glDeleteBuffers(1, &aridVBO);
     if (roadVAO)    glDeleteVertexArrays(1, &roadVAO);
     if (roadVBO)    glDeleteBuffers(1, &roadVBO);
+    if (pisoVAO)    glDeleteVertexArrays(1, &pisoVAO);
+    if (pisoVBO)    glDeleteBuffers(1, &pisoVBO);
 }
 
 void CicloviaScene::Init() {
     trackModel = new Model((char*)"../assets/obj/pista/pista.obj");
-    treeModel = new Model((char*)"../assets/obj/arbol/arbol.obj"); // Ocote
+    treeModel = new Model((char*)"../assets/obj/arbol/arbol.obj");
     ocoteModel = new Model((char*)"../assets/obj/ocote/ocote.obj");
     mountainModel = new Model((char*)"../assets/obj/Monta\xF1" "a/monta\xF1" "a.obj");
     bushModel = new Model((char*)"../assets/obj/arbusto/arbusto.obj");
     building1Model = new Model((char*)"../assets/obj/edificio-01/edificio-01.obj");
     building2Model = new Model((char*)"../assets/obj/edificio-02/edificio-02.obj");
 
-    // Elementos del bioma árido / Morelos
     huizacheModel = new Model((char*)"../assets/obj/Huizache/Huizache.obj");
     nopalModel = new Model((char*)"../assets/obj/Nopal Silvestre/NopalSilvestre.obj");
     magueyModel = new Model((char*)"../assets/obj/Maguey/maguey.obj");
@@ -168,22 +169,18 @@ void CicloviaScene::Init() {
     aveModel->AssignBones(AvesPose::BoneForVertex);
     semaforoModel = new Model((char*)"../assets/obj/semaforo/semaforo.obj");
 
-    // Fauna rural
     perroModel = new Model((char*)"../assets/obj/perro/perro.obj");
     cabraModel = new Model((char*)"../assets/obj/Cabra/Cabra.obj");
     ovejaModel = new Model((char*)"../assets/obj/oveja/Oveja.obj");
     caballoModel = new Model((char*)"../assets/obj/caballo/caballo.obj");
 
-    // Terreno base continuo verde
     const float X0 = -300.0f, X1 = 150.0f, Z0 = -700.0f, Z1 = 100.0f, PASO_T = 4.0f;
     const int NX = (int)((X1 - X0) / PASO_T), NZ = (int)((Z1 - Z0) / PASO_T);
 
     std::vector<float> alturas((NX + 1) * (NZ + 1));
-    for (int j = 0; j <= NZ; j++) {
-        for (int i = 0; i <= NX; i++) {
+    for (int j = 0; j <= NZ; j++)
+        for (int i = 0; i <= NX; i++)
             alturas[j * (NX + 1) + i] = Ruta::AlturaSuelo(X0 + i * PASO_T, Z0 + j * PASO_T) - 0.12f;
-        }
-    }
 
     auto H = [&](int i, int j) {
         i = std::max(0, std::min(NX, i));
@@ -224,16 +221,14 @@ void CicloviaScene::Init() {
 
     BuildRoad();
     BuildAridTerrain();
-    ConstruirFranja(475.0f, 685.0f, 45.0f, 4.0f, pisoVAO, pisoVBO, pisoCount);   // piso de Tepoztlán
+    ConstruirFranja(475.0f, 685.0f, 45.0f, 4.0f, pisoVAO, pisoVBO, pisoCount);
 
-    // Texturas de imagen (carpeta assets/texturas)
     texPasto = TextureFromFile("pasto.jpg", "../assets/texturas");
     texAsfalto = TextureFromFile("asfalto.jpg", "../assets/texturas");
     texTierra = TextureFromFile("tierra.jpg", "../assets/texturas");
     texArena = TextureFromFile("arena.jpg", "../assets/texturas");
     texCalle = TextureFromFile("calle.jpg", "../assets/texturas");
     texPiso = TextureFromFile("piso.jpg", "../assets/texturas");
-
 
     Ruta::Muestra p0 = Ruta::En(0.0f);
     const PolancoScene::Viewpoint& vp = PolancoScene::GetViewpoint(0);
@@ -244,7 +239,6 @@ void CicloviaScene::Init() {
     polanco.worldMatrix = w;
     polanco.Init();
 
-    // Tepoztlán original intacto
     Ruta::Muestra pTepoz = Ruta::En(475.0f);
     glm::mat4 wTepoz(1.0f);
     wTepoz = glm::translate(wTepoz, pTepoz.pos);
@@ -322,12 +316,12 @@ void CicloviaScene::BuildRoad() {
         }
         };
 
-
-    // Igual que quad, pero con coordenadas de textura: u a lo ancho (0 a 1), v a lo largo de la pista
     auto quadUV = [](std::vector<float>& v, glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d, float va, float vb) {
         glm::vec3 pts[6] = { a, b, c, a, c, d };
-        glm::vec2 uv[6] = { glm::vec2(0.0f, va), glm::vec2(1.0f, va), glm::vec2(1.0f, vb),
-                            glm::vec2(0.0f, va), glm::vec2(1.0f, vb), glm::vec2(0.0f, vb) };
+        glm::vec2 uv[6] = {
+            glm::vec2(0.0f, va), glm::vec2(1.0f, va), glm::vec2(1.0f, vb),
+            glm::vec2(0.0f, va), glm::vec2(1.0f, vb), glm::vec2(0.0f, vb)
+        };
         for (int k = 0; k < 6; k++) {
             float f[8] = { pts[k].x, pts[k].y, pts[k].z, 0.0f, 1.0f, 0.0f, uv[k].x, uv[k].y };
             v.insert(v.end(), f, f + 8);
@@ -344,6 +338,7 @@ void CicloviaScene::BuildRoad() {
     const std::vector<Ruta::Muestra>& m = Ruta::Muestras();
     const float yPista = 0.02f, yBordillo = 0.10f, anchoBordillo = 0.18f;
     const float S_CORTE_TERRACERIA = 415.0f;
+    terrVertsHasta475 = 0;
 
     for (size_t i = 0; i + 1 < m.size(); i++) {
         const Ruta::Muestra& a = m[i];
@@ -375,7 +370,7 @@ void CicloviaScene::BuildRoad() {
         }
         else {
             quadUV(terraceria, La + up * yPista, Ra + up * yPista, Rb + up * yPista, Lb + up * yPista, a.s / 2.0f, b.s / 2.0f);
-            if (a.s < 475.0f) terrVertsHasta475 += 6;   // lo que sigue de 475 m es la calle de Tepoztlán
+            if (a.s < 475.0f) terrVertsHasta475 += 6;
         }
     }
 
@@ -407,7 +402,7 @@ void CicloviaScene::BuildRoad() {
 void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
 
-    // 1. Suelo base (con textura de pasto)
+    // 1. Suelo base (textura de pasto)
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texPasto);
@@ -417,9 +412,8 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glBindVertexArray(terrainVAO);
     glDrawArrays(GL_TRIANGLES, 0, terrainCount);
     glBindVertexArray(0);
-    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);   // el manto árido sigue con color
 
-    // 2. Manto árido (con textura de arena)
+    // 2. Manto árido (textura de arena)
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texArena);
@@ -428,34 +422,34 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glBindVertexArray(aridVAO);
     glDrawArrays(GL_TRIANGLES, 0, aridCount);
     glBindVertexArray(0);
-    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
 
-
-    // 2b. Piso de Tepoztlán (con textura de piso)
-    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texPiso);
-    glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
-    glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
-    glBindVertexArray(pisoVAO);
-    glDrawArrays(GL_TRIANGLES, 0, pisoCount);
-    glBindVertexArray(0);
-    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
+    // 2b. Piso de Tepoztlán (textura de piso)
+    if (pisoCount > 0) {
+        glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texPiso);
+        glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
+        glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
+        glBindVertexArray(pisoVAO);
+        glDrawArrays(GL_TRIANGLES, 0, pisoCount);
+        glBindVertexArray(0);
+    }
 
     // 3. Pista
     model = glm::mat4(1.0f);
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(roadVAO);
 
-    // Asfalto con textura de imagen
+    // Asfalto con textura
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texAsfalto);
     glUniform1i(glGetUniformLocation(shader.Program, "material.diffuse"), 0);
     glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
     glDrawArrays(GL_TRIANGLES, roadStart[0], roadCount[0]);
-    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);   // raya, bordillos y terracería siguen con color
 
+    // Raya amarilla y bordillos
+    glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 1);
     glUniform3f(glGetUniformLocation(shader.Program, "meshColor"), 0.95f, 0.78f, 0.10f);
     glDrawArrays(GL_TRIANGLES, roadStart[1], roadCount[1]);
 
@@ -470,12 +464,11 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     glUniform1i(glGetUniformLocation(shader.Program, "material.specular"), 0);
     glDrawArrays(GL_TRIANGLES, roadStart[3], terrVertsHasta475);
 
-    // Calle de Tepoztlán (de 475 m en adelante) con textura de adoquín
+    // Calle de Tepoztlán (adoquín)
     glBindTexture(GL_TEXTURE_2D, texCalle);
     glDrawArrays(GL_TRIANGLES, roadStart[3] + terrVertsHasta475, roadCount[3] - terrVertsHasta475);
 
     glBindVertexArray(0);
-
     glUniform1i(glGetUniformLocation(shader.Program, "useColor"), 0);
 
     DrawUrbana(shader, modelLoc);
@@ -551,7 +544,6 @@ void CicloviaScene::DrawUrbana(Shader& shader, GLint modelLoc) {
     DrawSemaforos(shader, modelLoc);
 }
 
-// Mantener la escena original de Tepoztlán
 void CicloviaScene::DrawPueblo(Shader& shader, GLint modelLoc) {
     tepoztlan.Draw(shader, modelLoc);
 }
@@ -600,8 +592,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     const float INICIO_E2 = 210.0f;
     const float FIN_BOSQUE = 320.0f;
     const float INICIO_ARIDO = 320.0f;
-    const float FIN_ARIDO = 415.0f;
-    const float FIN_E2 = 475.0f;
+    const float FIN_ARIDO = 475.0f;
 
     auto punto = [](float s, float lado) {
         Ruta::Muestra p = Ruta::En(s);
@@ -616,8 +607,8 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         return x - std::floor(x);
         };
 
-    // 1. Bosque de Ocotes y Arbustos
-    if (treeModel) {
+    // 1. Bosque: Ocotes y Árboles con balanceo de viento en follaje
+    if (treeModel || ocoteModel) {
         int k = 0;
         for (float s = INICIO_E2 + 5.0f; s < FIN_BOSQUE; s += 8.0f, k++) {
             for (int L = 0; L < 2; L++) {
@@ -631,7 +622,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 Model* arbolElegido = (azar(sem + 2100) < 0.6f && ocoteModel) ? ocoteModel : treeModel;
                 const char* claveTronco = (arbolElegido == ocoteModel) ? "Corteza" : "Tronco";
 
-                // 1) Tronco: fijo, sin viento
+                // Tronco rígido
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, p);
                 model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -639,11 +630,12 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                 arbolElegido->DrawMaterialMatching(shader, claveTronco, true);
 
-                // 2) Follaje: balanceo por viento, con fase distinta por árbol
+                // Follaje con viento procedural
                 float tViento = (float)glfwGetTime();
                 float faseV = azar(sem + 1700) * 6.28f;
                 float vientoX = std::sin(tViento * 1.3f + faseV) * 2.5f;
                 float vientoZ = std::sin(tViento * 0.9f + faseV * 1.7f) * 1.8f;
+
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, p);
                 model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -656,6 +648,49 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
+    // Troncos caídos en el suelo del bosque
+    if (ocoteModel) {
+        int kT = 0;
+        for (float s = INICIO_E2 + 12.0f; s < FIN_BOSQUE - 6.0f; s += 19.0f, kT++) {
+            int sem = 5000 + kT;
+            float signo = (kT % 2 == 0) ? 1.0f : -1.0f;
+            float dist = 5.0f + azar(sem + 500) * 2.5f;
+            glm::vec3 p = punto(s + azar(sem) * 4.0f, signo * dist);
+            p.y += 0.25f;
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, p);
+            model = glm::rotate(model, glm::radians(azar(sem + 900) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            model = glm::scale(model, glm::vec3(0.55f));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            ocoteModel->DrawMaterialMatching(shader, "Corteza", true);
+        }
+    }
+
+    // Pasto (zacatón) en el sotobosque
+    if (zacatonModel) {
+        int kZ = 0;
+        for (float s = INICIO_E2 + 2.0f; s < FIN_BOSQUE; s += 4.0f, kZ++) {
+            for (int L = 0; L < 2; L++) {
+                int sem = 7000 + kZ * 2 + L;
+                if (azar(sem) < 0.35f) continue;
+
+                float dist = 3.2f + azar(sem + 500) * 5.5f;
+                float esc = 0.55f + azar(sem + 900) * 0.35f;
+                glm::vec3 p = punto(s + azar(sem + 300) * 3.0f, (L == 0 ? 1.0f : -1.0f) * dist);
+
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, p);
+                model = glm::rotate(model, glm::radians(azar(sem + 1300) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+                model = glm::scale(model, glm::vec3(esc));
+                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+                zacatonModel->Draw(shader);
+            }
+        }
+    }
+
+    // Arbustos
     if (bushModel) {
         int k = 0;
         for (float s = INICIO_E2 + 3.0f; s < FIN_BOSQUE; s += 6.0f, k++) {
@@ -675,51 +710,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // Troncos caídos en el suelo del bosque (solo la corteza del ocote, acostada)
-    if (ocoteModel) {
-        int kT = 0;
-        for (float s = INICIO_E2 + 12.0f; s < FIN_BOSQUE - 6.0f; s += 19.0f, kT++) {
-            int sem = 5000 + kT;
-            float signo = (kT % 2 == 0) ? 1.0f : -1.0f;
-            float dist = 5.0f + azar(sem + 500) * 2.5f;
-            glm::vec3 p = punto(s + azar(sem) * 4.0f, signo * dist);
-            p.y += 0.25f;
-
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, p);
-            model = glm::rotate(model, glm::radians(azar(sem + 900) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));   // acostado
-            model = glm::scale(model, glm::vec3(0.55f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            ocoteModel->DrawMaterialMatching(shader, "Corteza", true);
-        }
-    }
-
-    // Pasto (zacatón) en el sotobosque, en matas sueltas a los lados del camino
-    if (zacatonModel) {
-        int kZ = 0;
-        for (float s = INICIO_E2 + 2.0f; s < FIN_BOSQUE; s += 4.0f, kZ++) {
-            for (int L = 0; L < 2; L++) {
-                int sem = 7000 + kZ * 2 + L;
-                if (azar(sem) < 0.35f) continue;                 // deja huecos para que no se vea parejo
-                float dist = 3.2f + azar(sem + 500) * 5.5f;
-                float esc = 0.55f + azar(sem + 900) * 0.35f;
-                glm::vec3 p = punto(s + azar(sem + 300) * 3.0f, (L == 0 ? 1.0f : -1.0f) * dist);
-
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, p);
-                model = glm::rotate(model, glm::radians(azar(sem + 1300) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-                model = glm::scale(model, glm::vec3(esc));
-                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-                zacatonModel->Draw(shader);
-            }
-        }
-    }
-
-
-    // -------------------------------------------------------------------------
-    // 2. BIOMA ÁRIDO (320 a 415 m) SIN SOLAPAMIENTOS
-    // -------------------------------------------------------------------------
+    // 2. Bioma Árido (320 a 475 m)
     int slot = 0;
     for (float s = INICIO_ARIDO + 3.0f; s < FIN_ARIDO; s += 5.5f, slot++) {
         for (int L = 0; L < 2; L++) {
@@ -814,7 +805,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-    // 3. Fauna Natural Cuadrúpeda
+    // 3. Fauna Cuadrúpeda
     float t = (float)glfwGetTime();
     const float S_REBANO = 370.0f;
     Ruta::Muestra pMuestra = Ruta::En(S_REBANO);

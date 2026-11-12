@@ -13,7 +13,7 @@ public:
     Model* trackModel;
     Model* bridgeModel;
     Model* treeModel;          // Ocote / Pino montañés
-    Model* ocoteModel;         // Ocote real (bosque)
+    Model* ocoteModel;         // Ocote real con corteza
     Model* mountainModel;
     Model* bushModel;
     Model* signModel;
@@ -45,7 +45,7 @@ public:
     PolancoScene polanco;
     TepoztlanScene tepoztlan;
 
-    // Terreno base (verde) y manto árido (tepetate)
+    // Terreno base y manto árido
     GLuint terrainVAO, terrainVBO;
     GLuint aridVAO, aridVBO;
     int terrainCount;
@@ -62,7 +62,6 @@ public:
     void DrawRural(Shader& shader, GLint modelLoc);
     void DrawPueblo(Shader& shader, GLint modelLoc);
 
-    // Renderizado jerárquico articular para cuadrúpedos
     void DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
         const glm::mat4& root, float walkPhase,
         float xHombro, float xCadera, float yCadera,
