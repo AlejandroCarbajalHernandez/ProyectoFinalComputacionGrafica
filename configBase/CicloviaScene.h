@@ -49,15 +49,8 @@ public:
     Model* ovejaModel;
     Model* caballoModel;
 
-<<<<<<< HEAD
-
-
-
-=======
     // Las escenas de los dos extremos del recorrido: la zona de Polanco y el pueblo de Tepoztlán.
->>>>>>> develop
     PolancoScene polanco;
-    Semaforo* semaforo; // <-- Correcto (debe ser de tipo Semaforo)
     TepoztlanScene tepoztlan;
 
     // Datos del suelo del escenario, ya preparados para dibujarse.
@@ -67,15 +60,7 @@ public:
     int terrainCount;
     int aridCount;
 
-<<<<<<< HEAD
-
-
-
-
-
-=======
     // Datos de la carretera: cada tipo de superficie se guarda por separado.
->>>>>>> develop
     // Pista: 0 Asfalto, 1 Raya amarilla, 2 Bordillos, 3 Terracería rústica
     GLuint roadVAO, roadVBO;
     int roadStart[4];

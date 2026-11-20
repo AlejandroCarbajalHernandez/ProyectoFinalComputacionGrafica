@@ -5,11 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-<<<<<<< HEAD
-#include <GLFW/glfw3.h>  
-=======
 #include <GLFW/glfw3.h>
->>>>>>> develop
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -17,34 +13,6 @@
 // Avance de la bici sobre la ruta (m). main.cpp lo actualiza en cada cuadro.
 float PolancoScene::riderS = 0.0f;
 
-<<<<<<< HEAD
-// ---- Cruce de carretera (ajusta estos valores viendo la escena) ----
-static const float CRUCE_S = 200.0f;  // distancia sobre la ruta donde esta el cruce
-static const float DIST_ACTIVACION = 60.0f;   // la animacion arranca cuando faltan estos metros
-static const float ANCHO_CALLE = 12.0f;   // ancho de CarreteraCruce.obj (un carril por sentido)
-static const float LARGO_CRUCE = 120.0f;  // largo de CarreteraCruce.obj
-static const float ROT_NARIZ = 0.0f;    // pon 180 si los autos van de reversa
-static const float PISTA_MEDIO = 1.6f;                  // 1.25 de asfalto + 0.18 de bordillo + holgura
-static const float LINEA_ALTO = PISTA_MEDIO + 1.5f;    // 3.1 m
-static const float CRUCE_Y = 0.105f;                // justo arriba de los bordillos (0.10)
-static const float BICI_ZONA = 4.0f;                  // m a cada lado del cruce donde la bici bloquea a los carros
-
-// ---- Hueco libre del Museo Soumaya (museo en z = -70, x = -38) ----
-// Ningun edificio del lado izquierdo se dibuja con z entre estos dos valores.
-// Si quieres mas espacio, amplia el rango (ej. -20 y -120).
-static const float MUSEO_Z_INI = -20.0f;
-static const float MUSEO_Z_FIN = -125.0f;
-
-// ---- Escala y altura (Y) de los edificios grandes y las casas ----
-// Al escalar, el modelo crece desde su origen: si el origen no esta en la base, el modelo "vuela".
-// Si flota -> numero mas negativo. Si se hunde en el piso -> numero menos negativo / positivo.
-static const float EDIF_AB_ESC = 3.0f;   // escala de edificioA y edificioB (antes 2.0)
-static const float EDIFA_Y = 0.0f;       // altura de edificioA
-static const float EDIFB_Y = 0.0f;       // altura de edificioB
-static const float CASA1_ESC = 1.5f;     // escala de casa1
-static const float CASA1_Y = -2.0f;      // altura de casa1 (negativo = bajarla al piso)
-
-=======
 // Parámetros geométricos y de control para el cruce vehicular (metro 200)
 static const float CRUCE_S = 200.0f;
 static const float DIST_ACTIVACION = 60.0f;
@@ -68,7 +36,6 @@ static const float CASA1_ESC = 1.5f;
 static const float CASA1_Y = -2.0f;
 
 // Puntos de vista predefinidos para alinear la escena urbana con el inicio de la ruta
->>>>>>> develop
 static const PolancoScene::Viewpoint VIEWPOINTS[PolancoScene::VIEWPOINT_COUNT] = {
     { "Inicio de la ciclovia (Polanco, frente a Museos)", glm::vec3(9.6f, 0.0f, 10.0f), 0.0f },
     { "Frente al Museo Soumaya", glm::vec3(9.6f, 0.0f, -150.0f), 90.0f },
@@ -95,36 +62,10 @@ PolancoScene::PolancoScene() {
     edificio2 = nullptr;
     casa1 = nullptr;
     casa2 = nullptr;
-<<<<<<< HEAD
-
-// Puedes agregar más según los nombres de los archivos que tengas
-=======
->>>>>>> develop
 }
 
 // Destructor: libera la memoria de todos los modelos 3D y del controlador de semáforo
 PolancoScene::~PolancoScene() {
-<<<<<<< HEAD
-    delete museo; 
-    delete banca; 
-    delete cono; 
-    delete puente; 
-    delete vias;
-    delete arbol; 
-    delete luminaria; 
-    delete camellon;
-    delete autoRojo; 
-    delete autoNegro; 
-    delete autobus;
-    delete edificioA; 
-    delete edificioB; 
-    delete edificioBeige; 
-    delete edificioC;
-    delete techoVerde; 
-    delete torreCil; 
-    delete torreBal; 
-    delete torreCrisA; 
-=======
     delete museo;
     delete banca;
     delete cono;
@@ -144,7 +85,6 @@ PolancoScene::~PolancoScene() {
     delete torreCil;
     delete torreBal;
     delete torreCrisA;
->>>>>>> develop
     delete torreCrisB;
     delete carretera;
     delete carreteraCruce;
@@ -153,10 +93,6 @@ PolancoScene::~PolancoScene() {
     delete edificio2;
     delete casa1;
     delete casa2;
-<<<<<<< HEAD
-
-=======
->>>>>>> develop
 }
 
 // Carga los modelos arquitectónicos de Polanco, configura reflejos en cristales y crea el tráfico inicial
@@ -198,20 +134,6 @@ void PolancoScene::Init() {
 
     // Vialidades y edificaciones complementarias
     carretera = new Model((char*)"../assets/obj/Polanco/Carretera.obj");
-<<<<<<< HEAD
-    carreteraCruce = new Model((char*)"../assets/obj/Polanco/CarreteraCruce.obj");   // la que cruza la ciclovia
-    edificio1 = new Model((char*)"../assets/obj/Polanco/edificio-01.obj");
-    edificio2 = new Model((char*)"../assets/obj/Polanco/edificio-02.obj");
-    casa1 = new Model((char*)"../assets/obj/Polanco/Casa_1.obj"); // Si tienes Casa_1 o ajusta al nombre real
-    casa2 = new Model((char*)"../assets/obj/Polanco/Casa_2.obj");
-    // Semaforos (si ya los creas en otro lado, quita estas tres lineas)
-    semaforo = new Semaforo();
-    semaforo->Init();
-    semaforo->tRojo = semaforo->tVerde + semaforo->tAmbar + 2.0f;   // 2 s con todo en rojo entre cambios
-
-    // Trafico del cruce: u = posicion a lo largo de la carretera (0 = eje de la ciclovia)
-    // dir = +1 hacia +X, -1 hacia -X
-=======
     carreteraCruce = new Model((char*)"../assets/obj/Polanco/CarreteraCruce.obj");
     edificio1 = new Model((char*)"../assets/obj/Polanco/edificio-01.obj");
     edificio2 = new Model((char*)"../assets/obj/Polanco/edificio-02.obj");
@@ -224,42 +146,11 @@ void PolancoScene::Init() {
     semaforo->tRojo = semaforo->tVerde + semaforo->tAmbar + 2.0f;
 
     // Registro inicial de vehículos en ambos sentidos de circulación
->>>>>>> develop
     vehiculos.clear();
     vehiculos.push_back({ autoRojo,  -30.0f, -30.0f, +1.0f, 9.0f,  4.5f });
     vehiculos.push_back({ autobus,   -55.0f, -55.0f, +1.0f, 7.0f, 12.0f });
     vehiculos.push_back({ autoNegro,  30.0f,  30.0f, -1.0f, 9.0f,  4.5f });
     vehiculos.push_back({ autoNegro,  52.0f,  52.0f, -1.0f, 9.0f,  4.5f });
-<<<<<<< HEAD
-}
-
-// Mueve los vehiculos del cruce. Solo avanzan con verde; los que ya entraron al cruce terminan de pasar.
-void PolancoScene::ActualizarVehiculos(float dt, bool verdeParaCarros) {
-    for (size_t i = 0; i < vehiculos.size(); i++) {
-        Vehiculo& v = vehiculos[i];
-        float nuevo = v.u + v.dir * v.vel * dt;
-
-        // Linea de alto: si no hay verde, no pasa de ahi
-        float paro = -v.dir * (LINEA_ALTO + v.largo * 0.5f);
-        bool cruzariaLinea = (v.dir > 0.0f) ? (v.u <= paro && nuevo > paro) : (v.u >= paro && nuevo < paro);
-        if (cruzariaLinea && !verdeParaCarros) nuevo = paro;
-
-        // Distancia minima con el vehiculo de adelante (mismo sentido)
-        for (size_t j = 0; j < vehiculos.size(); j++) {
-            if (j == i || vehiculos[j].dir != v.dir) continue;
-            float adelante = (vehiculos[j].u - nuevo) * v.dir;
-            float minimo = 0.5f * (v.largo + vehiculos[j].largo) + 2.0f;
-            if (adelante > 0.0f && adelante < minimo) { nuevo = v.u; break; }
-        }
-        v.u = nuevo;
-
-        // Al salir por un extremo reaparece en el otro
-        const float U = LARGO_CRUCE * 0.5f;
-        if (v.dir > 0.0f && v.u > U) v.u = -U;
-        else if (v.dir < 0.0f && v.u < -U) v.u = U;
-    }
-=======
->>>>>>> develop
 }
 
 // Simula el avance de los vehículos respetando la luz roja, distancia de seguridad y ciclo continuo
@@ -306,10 +197,6 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         return b;
         };
 
-<<<<<<< HEAD
-    // true si z cae en el hueco que se deja libre para que luzca el museo
-=======
->>>>>>> develop
     auto EnMuseo = [&](float z) {
         return (z < MUSEO_Z_INI && z > MUSEO_Z_FIN);
         };
@@ -340,38 +227,14 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
     if (camellon) {
         model = Base(-60.0f);
         model = glm::translate(model, glm::vec3(-3.5f, 0.0f, 0.0f));
-<<<<<<< HEAD
-        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // rotado 90
-=======
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
->>>>>>> develop
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         camellon->Draw(shader);
     }
 
-<<<<<<< HEAD
-    // ==========================================
-    // 3. PUENTE PEATONAL (sobre la carretera, no sobre la pista)
-    // ==========================================
-   /* if (puente) {
-        model = Base(-50.0f);
-        model = glm::translate(model, glm::vec3(32.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(0.8f, 1.6f, 0.8f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        puente->Draw(shader);
-    }*/
-
-    // ==========================================
-    // 4. EDIFICIOS LADO IZQUIERDO
-    //    Ninguno entre z = -20 y z = -125 (hueco del museo, ver MUSEO_Z_INI / MUSEO_Z_FIN)
-    // ==========================================
-    if (edificioA) {
-        for (float z = 20.0f; z >= -160.0f; z -= 170.0f) { // z = 20 y -150 (antes y despues del museo)
-=======
     // 3. Edificios Lado Izquierdo
     if (edificioA) {
         for (float z = 20.0f; z >= -160.0f; z -= 170.0f) {
->>>>>>> develop
             model = Base(z);
             model = glm::translate(model, glm::vec3(-20.0f, 0.0f, 0.0f));
             model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -381,11 +244,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
     }
 
     if (edificioB) {
-<<<<<<< HEAD
-        for (float z = 15.0f; z >= -160.0f; z -= 165.0f) { // z = 15 y -150
-=======
         for (float z = 15.0f; z >= -160.0f; z -= 165.0f) {
->>>>>>> develop
             model = Base(z);
             model = glm::translate(model, glm::vec3(-60.0f, 0.0f, 0.0f));
             model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -395,30 +254,18 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
     }
 
     if (edificioC) {
-<<<<<<< HEAD
-        model = Base(-183.0f); model = glm::translate(model, glm::vec3(-20.0f, 0.0f, 0.0f)); // alejado 2 m del cruce
-=======
         model = Base(-183.0f); model = glm::translate(model, glm::vec3(-20.0f, 0.0f, 0.0f));
->>>>>>> develop
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); edificioC->Draw(shader);
     }
 
     if (techoVerde) {
-<<<<<<< HEAD
-        model = Base(-130.0f); model = glm::translate(model, glm::vec3(-55.0f, 0.0f, 0.0f)); // Justo despues del museo
-=======
         model = Base(-130.0f); model = glm::translate(model, glm::vec3(-55.0f, 0.0f, 0.0f));
->>>>>>> develop
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); techoVerde->Draw(shader);
     }
 
     if (torreCrisB) {
-<<<<<<< HEAD
-        for (float z = 40.0f; z >= -190.0f; z -= 65.0f) { // z = 40, [-25 -90 omitidos], -155
-=======
         for (float z = 40.0f; z >= -190.0f; z -= 65.0f) {
->>>>>>> develop
             if (EnMuseo(z)) continue;
             model = Base(z);
             model = glm::translate(model, glm::vec3(-85.0f, 0.0f, 0.0f));
@@ -472,19 +319,10 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         }
     }
 
-<<<<<<< HEAD
-    // ==========================================
-    // 5b. UNA CASA DE CADA LADO DE LA RUTA (cerca del cruce, s = 200)
-    // ==========================================
-    if (casa1) {
-        model = Base(-180.0f);
-        model = glm::translate(model, glm::vec3(-45.0f, CASA1_Y, 0.0f)); // izquierda
-=======
     // 5. Casas cerca del cruce
     if (casa1) {
         model = Base(-180.0f);
         model = glm::translate(model, glm::vec3(-45.0f, CASA1_Y, 0.0f));
->>>>>>> develop
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(CASA1_ESC));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
@@ -493,35 +331,18 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
 
     if (casa2) {
         model = Base(-180.0f);
-<<<<<<< HEAD
-        model = glm::translate(model, glm::vec3(45.0f, 0.0f, 0.0f)); // derecha
-        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(0.8f));                  // 0.8 = 80% del tamaño original
-=======
         model = glm::translate(model, glm::vec3(45.0f, 0.0f, 0.0f));
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.8f));
->>>>>>> develop
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         casa2->Draw(shader);
     }
 
-<<<<<<< HEAD
-    // ==========================================
-    // 5c. EDIFICIOS ANTES DEL INICIO DE LA RUTA (z > 0, tramo recto)
-    //     Una calle ordenada a cada lado, cada 25 m, sin tocar los demas edificios.
-    // ==========================================
-    if (edificio1) {
-        for (float z = 45.0f; z <= 95.0f; z += 25.0f) { // z = 45, 70, 95
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(-24.0f, 0.0f, 0.0f)); // Lado izquierdo
-=======
     // 6. Edificios z > 0 (tramo previo)
     if (edificio1) {
         for (float z = 45.0f; z <= 95.0f; z += 25.0f) {
             model = Base(z);
             model = glm::translate(model, glm::vec3(-24.0f, 0.0f, 0.0f));
->>>>>>> develop
             model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
             edificio1->Draw(shader);
@@ -529,15 +350,9 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
     }
 
     if (edificio2) {
-<<<<<<< HEAD
-        for (float z = 45.0f; z <= 95.0f; z += 25.0f) { // z = 45, 70, 95
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(43.0f, 0.0f, 0.0f)); // Lado derecho, mas alla de la carretera
-=======
         for (float z = 45.0f; z <= 95.0f; z += 25.0f) {
             model = Base(z);
             model = glm::translate(model, glm::vec3(43.0f, 0.0f, 0.0f));
->>>>>>> develop
             model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
             edificio2->Draw(shader);
@@ -545,73 +360,39 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
     }
 
     if (torreCrisB) {
-<<<<<<< HEAD
-        for (float z = 55.0f; z <= 105.0f; z += 50.0f) { // z = 55, 105
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(-55.0f, 0.0f, 0.0f)); // Segunda fila izquierda
-=======
         for (float z = 55.0f; z <= 105.0f; z += 50.0f) {
             model = Base(z);
             model = glm::translate(model, glm::vec3(-55.0f, 0.0f, 0.0f));
->>>>>>> develop
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
             torreCrisB->Draw(shader);
         }
     }
 
     if (torreCrisA) {
-<<<<<<< HEAD
-        for (float z = 55.0f; z <= 105.0f; z += 50.0f) { // z = 55, 105
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(68.0f, 0.0f, 0.0f)); // Segunda fila derecha
-=======
         for (float z = 55.0f; z <= 105.0f; z += 50.0f) {
             model = Base(z);
             model = glm::translate(model, glm::vec3(68.0f, 0.0f, 0.0f));
->>>>>>> develop
             model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
             torreCrisA->Draw(shader);
         }
     }
 
-<<<<<<< HEAD
-    // Torre con balcones en el centro del inicio (sobre el eje, cerrando la calle al fondo)
-    if (torreBal) {
-        model = Base(125.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // x = 0: centro de la ruta
-        model = glm::rotate(model, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // prueba 180 si mira al reves
-=======
     if (torreBal) {
         model = Base(125.0f);
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
->>>>>>> develop
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         torreBal->Draw(shader);
     }
 
-<<<<<<< HEAD
-    // Edificio verde enfrente de la torre (del lado de la ruta)
-    if (techoVerde) {
-        model = Base(100.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // x = 0: alineado con la torre
-        model = glm::rotate(model, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // prueba 180 si mira al reves
-=======
     if (techoVerde) {
         model = Base(100.0f);
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
->>>>>>> develop
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         techoVerde->Draw(shader);
     }
 
-<<<<<<< HEAD
-    // ==========================================
-    // 6. ÁRBOLES Y LUMINARIAS (A lo largo de los flancos)
-    // ==========================================
-=======
     // 7. Árboles y luminarias
->>>>>>> develop
     if (arbol) {
         for (float z = 5.0f; z > -150.0f; z -= 12.0f) {
             model = Base(z); model = glm::translate(model, glm::vec3(16.0f, 0.0f, 0.0f));
@@ -629,14 +410,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         }
     }
 
-<<<<<<< HEAD
-    // ==========================================
-    // 7. CARRETERA PARALELA A LA PISTA
-    //    (los autos y el autobus ahora estan en el cruce, seccion 10)
-    // ==========================================
-=======
     // 8. Carretera paralela
->>>>>>> develop
     if (carretera) {
         for (float z = 10.0f; z > -170.0f; z -= 10.0f) {
             model = Base(z);
@@ -646,13 +420,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         }
     }
 
-<<<<<<< HEAD
-    // ==========================================
-    // 8. MOBILIARIO URBANO
-    // ==========================================
-=======
     // 9. Mobiliario
->>>>>>> develop
     if (banca) {
         model = Base(-20.0f); model = glm::translate(model, glm::vec3(2.5f, 0.0f, 0.0f));
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -663,19 +431,10 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); cono->Draw(shader);
     }
 
-<<<<<<< HEAD
-    // ==========================================
-    // 9. SEMÁFOROS (se alternan: uno en verde, el otro en rojo)
-    // ==========================================
-    if (semaforo) {
-        const float t = static_cast<float>(glfwGetTime());
-        const float SEM_X = 21.0f;   // lateral: positivo = hacia la derecha de la ruta
-=======
     // 10. Semáforos urbanos fijos
     if (semaforo) {
         const float t = static_cast<float>(glfwGetTime());
         const float SEM_X = 21.0f;
->>>>>>> develop
 
         glm::mat4 m = Base(-45.0f);
         m = glm::translate(m, glm::vec3(SEM_X, 0.0f, 0.0f));
@@ -684,27 +443,9 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         m = Base(-95.0f);
         m = glm::translate(m, glm::vec3(SEM_X, 0.0f, 0.0f));
         semaforo->Draw(shader, modelLoc, m, t, semaforo->tVerde + semaforo->tAmbar);
-<<<<<<< HEAD
-        // Sistema local sobre el eje REAL de la ciclovia (sin worldMatrix, que desplaza el resto de Polanco).
-// Es el mismo eje con el que CicloviaScene::BuildRoad construye la pista.
-        auto BaseRuta = [&](float s) {
-            Ruta::Muestra m = Ruta::En(s);
-            glm::mat4 b(1.0f);
-            b = glm::translate(b, m.pos);
-            b = glm::rotate(b, glm::radians(m.headingDeg), glm::vec3(0.0f, 1.0f, 0.0f));
-            return b;
-            };
-    }
-
-    // ==========================================
-    // 10. CRUCE DE CARRETERA (animacion activada por la posicion de la bici)
-    // ==========================================
-    
-=======
     }
 
     // 11. Cruce animado con vehículos (se activa al acercarse el ciclista al metro 200)
->>>>>>> develop
     {
         const float t = static_cast<float>(glfwGetTime());
         float dt = t - ultimoT;
@@ -712,11 +453,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         if (dt > 0.1f) dt = 0.1f;
         if (dt < 0.0f) dt = 0.0f;
 
-<<<<<<< HEAD
-        // Activacion y reinicio (si la bici vuelve al inicio con R)
-=======
         // Activación y reinicio del ciclo de tráfico según proximidad del jugador
->>>>>>> develop
         if (cruceT0 < 0.0f && riderS >= CRUCE_S - DIST_ACTIVACION) {
             cruceT0 = t;
         }
@@ -725,19 +462,6 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
             for (size_t i = 0; i < vehiculos.size(); i++) vehiculos[i].u = vehiculos[i].u0;
         }
         const bool activo = (cruceT0 >= 0.0f);
-<<<<<<< HEAD
-        const float tCiclo = activo ? (t - cruceT0) : 0.0f;   // en reposo: bici en verde, autos en rojo
-
-        // Los autos tienen la fase opuesta a la de la bici
-        const float desfaseCarros = semaforo ? semaforo->tVerde + semaforo->tAmbar : 0.0f;
-        Semaforo::Fase faseCarros = semaforo ? semaforo->FaseEn(tCiclo, desfaseCarros) : Semaforo::ROJO;
-
-        // Si la bici esta sobre el cruce, los carros tratan la luz como roja
-        const bool biciEnCruce = std::fabs(riderS - CRUCE_S) < BICI_ZONA;
-        if (activo) ActualizarVehiculos(dt, faseCarros == Semaforo::VERDE && !biciEnCruce);
-
-        // Carretera que cruza la ciclovia (120 x 12 m, centrada en el eje de la pista)
-=======
         const float tCiclo = activo ? (t - cruceT0) : 0.0f;
 
         const float desfaseCarros = semaforo ? semaforo->tVerde + semaforo->tAmbar : 0.0f;
@@ -748,7 +472,6 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         if (activo) ActualizarVehiculos(dt, faseCarros == Semaforo::VERDE && !biciEnCruce);
 
         // Renderizado de la intersección vial, vehículos y semáforos sincronizados
->>>>>>> develop
         if (carreteraCruce) {
             model = Base(-CRUCE_S);
             model = glm::translate(model, glm::vec3(14.0f, CRUCE_Y, 0.0f));
@@ -756,40 +479,16 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
             carreteraCruce->Draw(shader);
         }
 
-<<<<<<< HEAD
-        // Aviso unico en consola: donde esta el cruce en el mundo (compara con la tecla P)
-        static bool avisado = false;
-        if (!avisado) {
-            avisado = true;
-            Ruta::Muestra mc = Ruta::En(CRUCE_S);
-            std::cout << "[Cruce] centro en (" << mc.pos.x << ", " << mc.pos.y << ", " << mc.pos.z
-                << ") | carreteraCruce=" << (carreteraCruce ? "cargada" : "NULL") << std::endl;
-        }
-
-       
-        // Vehiculos (un carril por sentido)
-=======
->>>>>>> develop
         for (size_t i = 0; i < vehiculos.size(); i++) {
             const Vehiculo& v = vehiculos[i];
             if (!v.modelo) continue;
             model = Base(-CRUCE_S);
-<<<<<<< HEAD
-
             model = glm::translate(model, glm::vec3(v.u + 8.0f, CRUCE_Y + 0.01f, v.dir * ANCHO_CALLE * 0.25f));
-
-=======
-            model = glm::translate(model, glm::vec3(v.u + 8.0f, CRUCE_Y + 0.01f, v.dir * ANCHO_CALLE * 0.25f));
->>>>>>> develop
             model = glm::rotate(model, glm::radians(ROT_NARIZ + (v.dir > 0.0f ? 0.0f : 180.0f)), glm::vec3(0.0f, 1.0f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
             v.modelo->Draw(shader);
         }
-<<<<<<< HEAD
-        // Semaforos: uno para la bici y uno por cada sentido de los autos
-=======
 
->>>>>>> develop
         if (semaforo) {
             glm::mat4 m = Base(-CRUCE_S);
             m = glm::translate(m, glm::vec3(PISTA_MEDIO + 0.6f, CRUCE_Y, ANCHO_CALLE * 0.5f + 1.5f));

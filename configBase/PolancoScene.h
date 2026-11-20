@@ -35,19 +35,6 @@ public:
     Model* torreCil;
     Model* torreBal;
     Model* torreCrisA;
-<<<<<<< HEAD
-    Model* torreCrisB;     // carretera paralela a la ciclovia
-    Model* carreteraCruce;  
-    Model* carretera;
-    Model* edificio1;
-    Model* edificio2;
-    Model* casa2;
-    Model*casa1;
-    Semaforo* semaforo;   // <--- Debe ser de tipo Semaforo*, NO Model*
-    // Puedes agregar más según los nombres de los archivos que tengas// NUEVO: carretera que cruza la ciclovia (con los autos)
-
-     // semaforos del cruce y de la avenida
-=======
     Model* torreCrisB;
     Model* carreteraCruce;
     Model* carretera;
@@ -57,21 +44,14 @@ public:
     Model* casa2;
     // El semáforo del cruce.
     Semaforo* semaforo;
->>>>>>> develop
 
     // Posición y orientación general de toda la escena en el mundo.
     glm::mat4 worldMatrix = glm::mat4(1.0f);
 
     // Avance de la bici sobre la ruta (m). main.cpp lo actualiza en cada cuadro
-<<<<<<< HEAD
-    // y el cruce lo usa para saber cuando activar la animacion.
-    static float riderS;
-
-=======
     static float riderS;
 
     // Crea la escena y libera sus modelos de la memoria al terminar.
->>>>>>> develop
     PolancoScene();
     ~PolancoScene();
 
@@ -94,20 +74,6 @@ public:
     glm::vec3 GetSpawnPosition() const { return GetViewpoint(0).pos; }
 
 private:
-<<<<<<< HEAD
-    // Trafico del cruce
-    struct Vehiculo {
-        Model* modelo;
-        float u0;      // posicion inicial a lo largo de la carretera
-        float u;       // posicion actual (0 = eje de la ciclovia)
-        float dir;     // +1 hacia +X, -1 hacia -X
-        float vel;     // m/s
-        float largo;   // largo del vehiculo (m)
-    };
-    std::vector<Vehiculo> vehiculos;
-    float cruceT0 = -1.0f;       // instante en que se activo el cruce (-1 = aun no)
-    float ultimoT = 0.0f;
-=======
     // Un vehículo que circula por el cruce: su modelo y cómo se mueve.
     struct Vehiculo {
         Model* modelo;
@@ -122,6 +88,5 @@ private:
     float cruceT0 = -1.0f;
     float ultimoT = 0.0f;
     // Mueve los vehículos según el tiempo y hace que se detengan cuando no tienen luz verde.
->>>>>>> develop
     void ActualizarVehiculos(float dt, bool verdeParaCarros);
 };
