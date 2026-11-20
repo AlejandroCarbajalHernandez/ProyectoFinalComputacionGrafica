@@ -32,8 +32,8 @@ static const float MUSEO_Z_FIN = -125.0f;
 static const float EDIF_AB_ESC = 3.0f;
 static const float EDIFA_Y = 0.0f;
 static const float EDIFB_Y = 0.0f;
-static const float CASA1_ESC = 1.5f;
-static const float CASA1_Y = -2.0f;
+static const float CASA1_ESC = 0.75f;
+static const float CASA1_Y = -1.15f;
 
 // Puntos de vista predefinidos para alinear la escena urbana con el inicio de la ruta
 static const PolancoScene::Viewpoint VIEWPOINTS[PolancoScene::VIEWPOINT_COUNT] = {
@@ -197,10 +197,6 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         return b;
         };
 
-    auto EnMuseo = [&](float z) {
-        return (z < MUSEO_Z_INI && z > MUSEO_Z_FIN);
-        };
-
     glm::mat4 model(1.0f);
 
     // 1. Museo Soumaya (con alta reflectividad metálica en su fachada)
@@ -232,111 +228,61 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         camellon->Draw(shader);
     }
 
-    // 3. Edificios Lado Izquierdo
-    if (edificioA) {
-        for (float z = 20.0f; z >= -160.0f; z -= 170.0f) {
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(-20.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            edificioA->Draw(shader);
-        }
-    }
+    // 3. Edificios, torres y casas.
+    // Acomodo calculado con las medidas reales de cada modelo: ningun edificio se traslapa con otro,
+    // todos quedan a >= 4 m de separacion y fuera del Museo y de la calle transversal del cruce.
+    // Para mover uno: "s" es la distancia sobre la ruta (m), "x" el desplazamiento lateral
+    // (negativo = izquierda, positivo = derecha) y "rotY" el giro en grados.
+    struct Colocado { Model* m; float s, x, rotY, esc, y, refl; };
+    const Colocado edificios[] = {
+        // --- Lado derecho, fila 1 (frente a la calle) ---
+        { edificioBeige,     6.0f,   40.2f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreCil,         44.0f,   38.4f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { edificioC,        76.5f,   32.2f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreBal,        113.0f,   36.6f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { edificioA,       141.0f,   33.2f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { edificioC,       163.5f,   32.2f, -90.0f, 1.0f, 0.0f, 0.0f },
+        // --- Lado derecho, fila 2 (torres al fondo) ---
+        { torreCrisA,       22.0f,   72.4f, -90.0f, 1.0f, 0.0f, 0.22f },
+        { torreBal,         53.0f,   71.9f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { edificioB,       105.0f,   67.5f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreCil,        133.0f,   73.7f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreCrisA,      160.5f,   72.4f, -90.0f, 1.0f, 0.0f, 0.22f },
+        { torreBal,        181.0f,   71.9f, -90.0f, 1.0f, 0.0f, 0.0f },
+        // --- Lado derecho, fila 3 (skyline al fondo) ---
+        { torreBal,         10.0f,  102.9f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreCrisA,       41.0f,  103.4f, -90.0f, 1.0f, 0.0f, 0.22f },
+        { torreCil,        124.5f,  104.7f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreBal,        152.0f,  102.9f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreCrisA,      169.5f,  103.4f, -90.0f, 1.0f, 0.0f, 0.22f },
+        { torreCil,        188.0f,  104.7f, -90.0f, 1.0f, 0.0f, 0.0f },
+        { torreBal,        204.5f,  102.9f, -90.0f, 1.0f, 0.0f, 0.0f },
+        // --- Lado izquierdo, fila 1 (frente a la calle) ---
+        { edificioC,        15.5f,  -17.2f,  90.0f, 1.0f, 0.0f, 0.0f },
+        { edificioB,       106.5f,  -17.2f,  90.0f, 1.0f, 0.0f, 0.0f },
+        { edificioA,       130.0f,  -18.2f,  90.0f, 1.0f, 0.0f, 0.0f },
+        { edificioB,       154.5f,  -17.2f,  90.0f, 1.0f, 0.0f, 0.0f },
+        // --- Lado izquierdo, fila 2 (al fondo); el edificio blanco (techoVerde) esta detras de la salida ---
+        { edificioB,        20.5f,  -43.2f,  90.0f, 1.0f, 0.0f, 0.0f },
+        { techoVerde,      -27.5f,    0.5f, 180.0f, 0.75f, 0.0f, 0.0f },   // edificio blanco: detras de la salida; 180 = ventanas hacia la ruta; escala 0.75 para dejar 3 m de aire
+        { torreCrisB,      148.0f,  -64.2f,   0.0f, 1.0f, 0.0f, 0.22f },
+        // --- Casas junto al cruce ---
+        { casa1,           179.0f,  -15.2f,   0.0f, CASA1_ESC, CASA1_Y, 0.0f },
+        { casa2,           182.0f,   33.8f, -90.0f, 0.8f, 0.0f, 0.0f },
+    };
 
-    if (edificioB) {
-        for (float z = 15.0f; z >= -160.0f; z -= 165.0f) {
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(-60.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            edificioB->Draw(shader);
-        }
-    }
-
-    if (edificioC) {
-        model = Base(-183.0f); model = glm::translate(model, glm::vec3(-20.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); edificioC->Draw(shader);
-    }
-
-    if (techoVerde) {
-        model = Base(-130.0f); model = glm::translate(model, glm::vec3(-55.0f, 0.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); techoVerde->Draw(shader);
-    }
-
-    if (torreCrisB) {
-        for (float z = 40.0f; z >= -190.0f; z -= 65.0f) {
-            if (EnMuseo(z)) continue;
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(-85.0f, 0.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.22f);
-            torreCrisB->Draw(shader);
-            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.0f);
-        }
-    }
-
-    // 4. Edificios Lado Derecho
-    if (torreBal) {
-        for (float z = 5.0f; z >= -140.0f; z -= 35.0f) {
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(40.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            torreBal->Draw(shader);
-        }
-    }
-
-    if (torreCil) {
-        for (float z = -10.0f; z >= -150.0f; z -= 50.0f) {
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(60.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            torreCil->Draw(shader);
-        }
-    }
-
-    if (edificioBeige) {
-        for (float z = -15.0f; z >= -140.0f; z -= 45.0f) {
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(40.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            edificioBeige->Draw(shader);
-        }
-    }
-
-    if (torreCrisA) {
-        for (float z = -30.0f; z >= -160.0f; z -= 50.0f) {
-            model = Base(z);
-            model = glm::translate(model, glm::vec3(60.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.22f);
-            torreCrisA->Draw(shader);
-            glUniform1f(glGetUniformLocation(shader.Program, "reflectivity"), 0.0f);
-        }
-    }
-
-    // 5. Casas cerca del cruce
-    if (casa1) {
-        model = Base(-180.0f);
-        model = glm::translate(model, glm::vec3(-45.0f, CASA1_Y, 0.0f));
-        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(CASA1_ESC));
+    const GLint locRefl = glGetUniformLocation(shader.Program, "reflectivity");
+    for (const Colocado& e : edificios) {
+        if (!e.m) continue;
+        model = Base(-e.s);
+        model = glm::translate(model, glm::vec3(e.x, e.y, 0.0f));
+        model = glm::rotate(model, glm::radians(e.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
+        if (e.esc != 1.0f) model = glm::scale(model, glm::vec3(e.esc));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        casa1->Draw(shader);
+        glUniform1f(locRefl, e.refl);
+        e.m->Draw(shader);
     }
-
-    if (casa2) {
-        model = Base(-180.0f);
-        model = glm::translate(model, glm::vec3(45.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(0.8f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        casa2->Draw(shader);
-    }
+    glUniform1f(locRefl, 0.0f);
 
     // 6. Edificios z > 0 (tramo previo)
     if (edificio1) {
@@ -383,13 +329,6 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         torreBal->Draw(shader);
-    }
-
-    if (techoVerde) {
-        model = Base(100.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        techoVerde->Draw(shader);
     }
 
     // 7. Árboles y luminarias
