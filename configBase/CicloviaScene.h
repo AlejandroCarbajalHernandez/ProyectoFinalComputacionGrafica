@@ -48,6 +48,11 @@ public:
     Model* cabraModel;
     Model* ovejaModel;
     Model* caballoModel;
+    Model* puenteRuralModel;   // puente rojo con domo (zona de bosque)
+    Model* letreroAModel;      // "CICLOVIA"   (lado izquierdo)
+    Model* letreroBModel;      // "RURAL CDMX" (lado derecho)
+    //   (b) junto a "void DrawRural(...)":
+    void DrawPuenteRural(Shader& shader, GLint modelLoc);
 
     // Las escenas de los dos extremos del recorrido: la zona de Polanco y el pueblo de Tepoztlán.
     PolancoScene polanco;
