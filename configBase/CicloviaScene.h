@@ -18,6 +18,8 @@ public:
     Model* bridgeModel;
     Model* treeModel;          // Ocote / Pino montañés
     Model* ocoteModel;         // Ocote real con corteza
+    Model* encinoModel;
+    Model* arbolSecoModel;
     Model* mountainModel;
     Model* bushModel;
     Model* signModel;

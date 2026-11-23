@@ -42,6 +42,12 @@ public:
     Model* edificio2;
     Model* casa1;
     Model* casa2;
+    Model* locomotora;
+    Model* tolva;
+    Model* jacaranda;
+    Model* casaRus1;
+    Model* casaRus2;
+    Model* casaRus3;
     // El semáforo del cruce.
     Semaforo* semaforo;
 
