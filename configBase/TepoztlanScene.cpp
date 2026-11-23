@@ -11,7 +11,6 @@ TepoztlanScene::TepoztlanScene() {
     letrero = nullptr;
     mercado = nullptr;
     meta = nullptr;
-    cerro = nullptr;
     worldMatrix = glm::mat4(1.0f);
 }
 
@@ -24,7 +23,6 @@ TepoztlanScene::~TepoztlanScene() {
     delete letrero;
     delete mercado;
     delete meta;
-    delete cerro;
 }
 
 // Carga desde disco los archivos .obj correspondientes a la arquitectura y arco de meta del destino
@@ -36,7 +34,6 @@ void TepoztlanScene::Init() {
     letrero = new Model((char*)"../assets/obj/LetreroTepoztlan/LetreroTepoztlan.obj");
     mercado = new Model((char*)"../assets/obj/MercadoMunicipal/MercadoMunicipal.obj");
     meta = new Model((char*)"../assets/obj/meta/meta.obj");
-    cerro = new Model((char*)"../assets/obj/cerro/cerro.obj");
 }
 
 // Posiciona y renderiza todos los elementos de Tepoztlán relativos a worldMatrix (metro 475 de la ruta)
@@ -98,11 +95,5 @@ void TepoztlanScene::Draw(Shader& shader, GLint modelLoc) {
         model = Base(glm::vec3(-30.0f, 0.3f, -50.0f), 0.0f);
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         casas->Draw(shader);
-    }
-    // 8. Cerro del Tepozteco al fondo 
-    if (cerro) {
-        model = Base(glm::vec3(-84.0f, -3.0f, -205.0f), 0.0f);
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        cerro->Draw(shader);
     }
 }

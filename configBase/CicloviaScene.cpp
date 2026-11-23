@@ -101,8 +101,6 @@ CicloviaScene::CicloviaScene() {
     cabraModel = nullptr;
     ovejaModel = nullptr;
     caballoModel = nullptr;
-    encinoModel = nullptr;
-    arbolSecoModel = nullptr;
 
     terrainVAO = 0;
     terrainVBO = 0;
@@ -112,10 +110,7 @@ CicloviaScene::CicloviaScene() {
     aridCount = 0;
     roadVAO = 0;
     roadVBO = 0;
-    puenteRuralModel = nullptr;
-    letreroAModel = nullptr;
-    letreroBModel = nullptr;
-   
+
     for (int i = 0; i < 4; i++) {
         roadStart[i] = 0;
         roadCount[i] = 0;
@@ -133,8 +128,6 @@ CicloviaScene::~CicloviaScene() {
     delete trafficConeModel;
     delete building1Model;
     delete building2Model;
-    delete encinoModel;
-    delete arbolSecoModel;
 
     delete huizacheModel;
     delete nopalModel;
@@ -150,12 +143,6 @@ CicloviaScene::~CicloviaScene() {
     delete cabraModel;
     delete ovejaModel;
     delete caballoModel;
-    //   (b) en el destructor, junto a los demas "delete ...;":
-    delete puenteRuralModel;
-    delete letreroAModel;
-    delete letreroBModel;
- 
-
 
     if (terrainVAO) glDeleteVertexArrays(1, &terrainVAO);
     if (terrainVBO) glDeleteBuffers(1, &terrainVBO);
@@ -177,8 +164,6 @@ void CicloviaScene::Init() {
     bushModel = new Model((char*)"../assets/obj/arbusto/arbusto.obj");
     building1Model = new Model((char*)"../assets/obj/edificio-01/edificio-01.obj");
     building2Model = new Model((char*)"../assets/obj/edificio-02/edificio-02.obj");
-    encinoModel = new Model((char*)"../assets/obj/Encino/Encino.obj");
-    arbolSecoModel = new Model((char*)"../assets/obj/ArbolSeco/ArbolSeco.obj");
 
     huizacheModel = new Model((char*)"../assets/obj/Huizache/Huizache.obj");
     nopalModel = new Model((char*)"../assets/obj/Nopal Silvestre/NopalSilvestre.obj");
@@ -195,11 +180,6 @@ void CicloviaScene::Init() {
     cabraModel = new Model((char*)"../assets/obj/Cabra/Cabra.obj");
     ovejaModel = new Model((char*)"../assets/obj/oveja/Oveja.obj");
     caballoModel = new Model((char*)"../assets/obj/caballo/caballo.obj");
-    
-    puenteRuralModel = new Model((char*)"../assets/obj/Puente/Puente.obj");
-    letreroAModel = new Model((char*)"../assets/obj/LetreroA/LetreroA.obj");
-    letreroBModel = new Model((char*)"../assets/obj/LetreroB/LetreroB.obj");
- 
 
     // Construcción de la cuadrícula de alturas y cálculo de normales por diferencias finitas
     const float X0 = -300.0f, X1 = 150.0f, Z0 = -700.0f, Z1 = 100.0f, PASO_T = 4.0f;
@@ -513,7 +493,6 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     DrawRural(shader, modelLoc);
     DrawPueblo(shader, modelLoc);
     DrawAves(shader, modelLoc);
-    DrawPuenteRural(shader, modelLoc);
 }
 
 // Dibuja una parvada de aves en vuelo circular usando animación esquelética (skinning)
@@ -633,57 +612,6 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
     }
 }
 
-void CicloviaScene::DrawPuenteRural(Shader& shader, GLint modelLoc) {
-    const float S_PUENTE = 290.0f;    // centro del puente (tramo recto 280 a 300 m)
-    const float Z_PUENTE = 45.6f;     // centro del puente en el .obj (z = -45.6)
-    const float ROT_PUENTE = 180.0f;
-    const float HUNDIDO = 0.20f;     // cuanto se entierra la base (sube si ves huecos bajo los zocalos)
-    const float S_LETREROS = S_PUENTE - 16.5f;   // los dos letreros a la misma altura de la ruta
-
-    // Pendiente de la ruta en un punto (grados): sube a lo largo de -Z del modelo
-    auto Pendiente = [&](float s) {
-        float y1 = Ruta::En(s - 8.0f).pos.y, y2 = Ruta::En(s + 8.0f).pos.y;
-        return glm::degrees(std::atan2(y2 - y1, 16.0f));
-        };
-    // Punto del eje en s + giro de la ruta + inclinacion del terreno
-    auto SobreRuta = [&](float s) {
-        Ruta::Muestra r = Ruta::En(s);
-        glm::vec3 pos = r.pos;
-        pos.y = Ruta::AlturaSuelo(pos.x, pos.z) - HUNDIDO;
-        glm::mat4 m(1.0f);
-        m = glm::translate(m, pos);
-        m = glm::rotate(m, glm::radians(r.headingDeg), glm::vec3(0.0f, 1.0f, 0.0f));
-        m = glm::rotate(m, glm::radians(Pendiente(s)), glm::vec3(1.0f, 0.0f, 0.0f));
-        return m;
-        };
-
-    // --- Puente: sigue la pendiente y gira 180 sobre su centro ---
-    if (puenteRuralModel) {
-        glm::mat4 model = SobreRuta(S_PUENTE);
-        model = glm::rotate(model, glm::radians(ROT_PUENTE), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, Z_PUENTE));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        puenteRuralModel->Draw(shader);
-    }
-
-    // --- Letreros: uno a cada lado, con las palabras fuera del camino ---
-   
-    struct Letrero { Model* m; float cx, cz, rotY, lado; };
-    const Letrero letreros[] = {
-        { letreroAModel, -4.6f, -30.25f, -90.0f,  -9.35f },   // CICLOVIA   (izquierda)
-        { letreroBModel,  4.6f, -28.00f,  90.0f,  11.60f },   // RURAL CDMX (derecha)
-    };
-    for (const Letrero& L : letreros) {
-        if (!L.m) continue;
-        glm::mat4 model = SobreRuta(S_LETREROS);
-        model = glm::translate(model, glm::vec3(L.lado, 0.0f, 0.0f));                   // lado de la ruta
-        model = glm::rotate(model, glm::radians(L.rotY), glm::vec3(0.0f, 1.0f, 0.0f));  // giro sobre su centro
-        model = glm::translate(model, glm::vec3(-L.cx, 0.0f, -L.cz));                   // centro de la palabra al origen
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        L.m->Draw(shader);
-    }
-}
-
 // Pobla y anima los biomas de bosque (210-320 m), zona árida (320-475 m) y la fauna local
 void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
@@ -691,8 +619,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     const float FIN_BOSQUE = 320.0f;
     const float INICIO_ARIDO = 320.0f;
     const float FIN_ARIDO = 475.0f;
-    // Zona del puente y los letreros (s ~ 248 a 284): sin arboles pegados al camino
-    auto sobrePuente = [](float s, float dist) { return s > 246.0f && s < 284.0f && dist < 22.0f; };
 
     auto punto = [](float s, float lado) {
         Ruta::Muestra p = Ruta::En(s);
@@ -710,15 +636,12 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
 
     // 1. Bosque: Ocotes y Árboles con balanceo de viento en follaje
     if (treeModel || ocoteModel) {
-
-
         int k = 0;
         for (float s = INICIO_E2 + 5.0f; s < FIN_BOSQUE; s += 8.0f, k++) {
             for (int L = 0; L < 2; L++) {
                 int sem = k * 2 + L;
                 float sJ = s + azar(sem) * 3.0f;
                 float dist = 7.5f + azar(sem + 500) * 7.5f;
-                if (sobrePuente(sJ, dist)) continue;
                 float esc = 0.90f + azar(sem + 900) * 0.25f;
                 float giro = azar(sem + 1300) * 360.0f;
                 glm::vec3 p = punto(sJ, (L == 0 ? 1.0f : -1.0f) * dist);
@@ -748,76 +671,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 model = glm::scale(model, glm::vec3(esc));
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                 arbolElegido->DrawMaterialMatching(shader, claveTronco, false);
-            }
-        }
-    }
-    // 1b. Bosque denso en 3 capas (cerca, medio y fondo): ocote dominante, con pino, encino y arbol seco.
- //     Mismo viento en el follaje; deja pocos claros y respeta la zona del puente.
-    {
-        // Dibuja un arbol (tronco rigido + follaje con viento) en la posicion lateral "lado" (+ derecha / - izquierda)
-        auto plantar = [&](int sem, float sJ, float lado, float dist, float escExtra) {
-            const float INICIO_DENSO = 216.0f;   // el cruce termina en s≈212
-            float r = azar(sem + 2100);
-            Model* m; const char* clave; float escBase;
-            if (r < 0.45f) { m = ocoteModel;     clave = "Corteza"; escBase = 1.0f; }   // 45 % ocote
-            else if (r < 0.73f) { m = treeModel;      clave = "Tronco";  escBase = 1.25f; }   // 28 % pino
-            else if (r < 0.85f) { m = encinoModel;    clave = "Tronco";  escBase = 1.0f; }   // 12 % encino
-            else { m = arbolSecoModel; clave = "Tronco";  escBase = 1.0f; }   // 15 % arbol seco
-            if (!m) return;
-
-            float esc = escBase * escExtra * (0.80f + azar(sem + 900) * 0.70f);
-            float giro = azar(sem + 1300) * 360.0f;
-            glm::vec3 p = punto(sJ, lado * dist);
-
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, p);
-            model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
-            model = glm::scale(model, glm::vec3(esc));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            m->DrawMaterialMatching(shader, clave, true);
-
-            float tV = (float)glfwGetTime(), faseV = azar(sem + 1700) * 6.28f;
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, p);
-            model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(std::sin(tV * 1.3f + faseV) * 2.5f), glm::vec3(1.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(std::sin(tV * 0.9f + faseV * 1.7f) * 1.8f), glm::vec3(0.0f, 0.0f, 1.0f));
-            model = glm::scale(model, glm::vec3(esc));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            m->DrawMaterialMatching(shader, clave, false);
-            };
-        const float INICIO_DENSO = 216.0f;   // el cruce termina en s≈212
-        // Capa 1: cerca del camino (8 a 20 m), un arbol cada ~2 m por lado
-        int k1 = 0;
-        for (float s = INICIO_DENSO; s < FIN_BOSQUE + 6.0f; s += 2.0f, k1++) {
-            for (int L = 0; L < 2; L++) {
-                int sem = 30000 + k1 * 2 + L;
-                if (azar(sem + 70) < 0.06f) continue;
-                float dist = 8.0f + azar(sem + 500) * 12.0f;
-                float sJ = s + azar(sem) * 2.0f;
-                if (sobrePuente(sJ, dist)) continue;
-                plantar(sem, sJ, (L == 0 ? 1.0f : -1.0f), dist, 1.0f);
-            }
-        }
-        // Capa 2: medio (20 a 45 m), un arbol cada ~3 m, algo mas altos
-        int k2 = 0;
-        for (float s = INICIO_DENSO - 4.0f; s < FIN_BOSQUE + 10.0f; s += 3.0f, k2++) {
-            for (int L = 0; L < 2; L++) {
-                int sem = 40000 + k2 * 2 + L;
-                float dist = 20.0f + azar(sem + 500) * 25.0f;
-                float sJ = s + azar(sem) * 3.0f;
-                if (sobrePuente(sJ, dist)) continue;
-                plantar(sem, sJ, (L == 0 ? 1.0f : -1.0f), dist, 1.15f);
-            }
-        }
-        // Capa 3: fondo (45 a 80 m), mas separados y grandes: cierran el horizonte
-        int k3 = 0;
-        for (float s = INICIO_DENSO - 10.0f; s < FIN_BOSQUE + 15.0f; s += 4.5f, k3++) {
-            for (int L = 0; L < 2; L++) {
-                int sem = 50000 + k3 * 2 + L;
-                float dist = 45.0f + azar(sem + 500) * 35.0f;
-                float sJ = s + azar(sem) * 4.5f;
-                plantar(sem, sJ, (L == 0 ? 1.0f : -1.0f), dist, 1.3f);
             }
         }
     }
@@ -980,7 +833,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         }
     }
 
-
     // 3. Fauna Cuadrúpeda: máquina de estados por tramos (caminata, pausa de pastoreo y giro suave)
     float t = (float)glfwGetTime();
     const float S_REBANO = 370.0f;
@@ -995,7 +847,6 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         float bobbingY;
         float pastoreoPitch;
     };
-
 
     auto calcularPasoNatural = [&](float tGlobal, float durPaso, float durPausa, float durGiro,
         float velFrec, float radioS, float radioL, float fOffset)
