@@ -132,19 +132,6 @@ public:
             this->meshes[i].AssignBones(boneFunc);
         }
     }
-   
-
-    // Devuelve la caja que contiene al modelo (en sus unidades originales).
-    void GetBounds(glm::vec3& minV, glm::vec3& maxV) const
-    {
-        minV = glm::vec3(1e9f);
-        maxV = glm::vec3(-1e9f);
-        for (const auto& m : meshes)
-            for (const auto& v : m.vertices) {
-                minV = glm::min(minV, v.Position);
-                maxV = glm::max(maxV, v.Position);
-            }
-    }
 
 private:
     // Las piezas del modelo, la carpeta donde está su archivo y las imágenes ya cargadas.
@@ -288,5 +275,4 @@ private:
         }
         return textures;
     }
-    
 };

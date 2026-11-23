@@ -32,7 +32,6 @@ private:
     Model* letrero;
     Model* mercado;
     Model* meta;
-    Model* cerro;
 };
 
 #endif#pragma once
