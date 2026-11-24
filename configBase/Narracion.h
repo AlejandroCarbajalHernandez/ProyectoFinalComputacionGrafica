@@ -105,17 +105,17 @@ namespace Narracion {
     // IMPORTANTE: ajusta las "s" al lugar real de cada cosa en tu ruta (la de Soumaya sobre todo).
     inline const std::vector<Info>& Lista() {
         static const std::vector<Info> L = {
-            { 0.0f, 8.0f, "INDICACIONES",
-              "BOTELLAS DE AGUA: recógelas pasando sobre ellas. Cada una recupera 25 % de tu hidratación. Si llegas a 0 %, pierdes la partida.\n"
-              "AIRE: la presión de tus llantas se mide en PSI (libras por pulgada cuadrada) y empiezas con 35. Baja si te sales de la pista y en la terracería, y si llega a 0 pierdes. Para inflarlas, frena casi por completo junto a una bomba de aire.\n"
-              "CLAVOS: esquívalos. Cada uno te quita 12 PSI de presión." },
+            { 0.0f, 11.0f, "INDICACIONES",
+              "BOTELLAS DE AGUA: pasa sobre ellas para recuperar hidratación. Si tu hidratación llega a 0 %, pierdes una vida.\n"
+              "AIRE: la presión de tus llantas se mide en PSI (libras por pulgada cuadrada) y empiezas con 35. Baja si te sales de la pista y en la terracería. Si llega a 0, pierdes una vida. Para inflarlas, frena casi por completo junto a una bomba de aire.\n"
+              "CLAVOS: esquívalos, cada uno te quita aire. RECUERDOS: busca el diamante dorado de cada zona para armar tu pasaporte turístico." },
             { 26.0f, 12.0f, "MUSEO SOUMAYA",
               "El Museo Soumaya tiene una fachada de 16 mil hexágonos de aluminio y mide 47 metros de altura. Lo diseñó Fernando Romero, se inauguró en 2011 y su entrada es gratuita." },
             { 112.0f, 10.0f, "FERROCARRIL DE CUERNAVACA",
               "A tu izquierda están las vías y un tren. Esta ciclovía sigue casi la ruta del antiguo Ferrocarril de Cuernavaca: su estación se construyó en 1897 y la ciclovía se inauguró en 2011." },
             { 212.0f, 8.0f, "EMILIANO ZAPATA",
               "A tu izquierda está la estatua de Emiliano Zapata (1879-1919), líder campesino de Morelos y jefe del Ejército Libertador del Sur.\n"
-              "En 1911 proclamó el Plan de Ayala, con el lema \"Tierra y Libertad\". Fue asesinado en Chinameca el 10 de abril de 1919." },
+              "En 1911 proclamó el Plan de Ayala, con el lema Tierra y Libertad. Fue asesinado en Chinameca el 10 de abril de 1919." },
             { 240.0f, 8.0f, "BOSQUE DE OCOTES",
               "El ocote (Pinus montezumae) crece entre 2,000 y 3,200 metros de altura y su madera resinosa se ha usado para encender fuego. Esta región forma parte del corredor biológico Chichinautzin.\n"
               "Aquí el aire es fresco, por eso te deshidratas más despacio." },
@@ -145,6 +145,9 @@ namespace Narracion {
     };
     inline Estado& Est() { static Estado e; return e; }
 
+    // Si es false (versión avanzada), no se muestra la caja de indicaciones del inicio.
+    inline bool& MostrarIndicaciones() { static bool b = true; return b; }
+
     // Se llama al reiniciar la partida.
     inline void Reiniciar() {
         Estado& e = Est();
@@ -164,8 +167,9 @@ namespace Narracion {
         for (size_t i = 0; i < Lista().size(); i++) {
             if (e.visto[i]) continue;
             const Info& in = Lista()[i];
+            if (i == 0 && !MostrarIndicaciones()) { e.visto[i] = true; continue; }   // la caja 0 es el tutorial
             if (sJugador >= in.s + 80.0f) { e.visto[i] = true; continue; }   // se pasó de largo (salto de zona): no se muestra
-            if (sJugador >= in.s && (e.activa < 0 || (e.dur - e.timer) >= 6.0f)) {   // si hay otra caja, espera a que lleve 6 s en pantalla y la reemplaza
+            if (sJugador >= in.s && (e.activa < 0 || (e.dur - e.timer) >= 0.75f * e.dur)) {   // si hay otra caja, espera a que lleve el 75 % de su tiempo y la reemplaza
                 e.visto[i] = true;
                 e.activa = (int)i;
                 e.timer = in.duracion;
