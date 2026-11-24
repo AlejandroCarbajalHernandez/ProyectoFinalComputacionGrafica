@@ -18,8 +18,16 @@ public:
     Model* bridgeModel;
     Model* treeModel;          // Ocote / Pino montañés
     Model* ocoteModel;         // Ocote real con corteza
-    Model* encinoModel;
-    Model* arbolSecoModel;
+    Model* encinoModel;        // Encino (hoja ancha)
+    Model* arbolSecoModel;     // Árbol seco
+    Model* mezquiteModel;      // Mezquite (copa de sombrilla)
+    Model* cazahuateModel;     // Cazahuate (tronco blanco)
+    Model* organoModel;        // Cactus órgano
+    Model* biznagaModel;       // Biznaga (cactus de barril)
+    Model* izoteModel;         // Izote / yuca
+    Model* puenteRuralModel;   // Puente rojo con domo (zona de bosque)
+    Model* letreroAModel;      // "CICLOVIA"   (lado izquierdo)
+    Model* letreroBModel;      // "RURAL CDMX" (lado derecho)
     Model* mountainModel;
     Model* bushModel;
     Model* signModel;
@@ -50,11 +58,6 @@ public:
     Model* cabraModel;
     Model* ovejaModel;
     Model* caballoModel;
-    Model* puenteRuralModel;   // puente rojo con domo (zona de bosque)
-    Model* letreroAModel;      // "CICLOVIA"   (lado izquierdo)
-    Model* letreroBModel;      // "RURAL CDMX" (lado derecho)
-    //   (b) junto a "void DrawRural(...)":
-    void DrawPuenteRural(Shader& shader, GLint modelLoc);
 
     // Las escenas de los dos extremos del recorrido: la zona de Polanco y el pueblo de Tepoztlán.
     PolancoScene polanco;
@@ -79,6 +82,7 @@ public:
     // Dibujan cada tramo del recorrido: la ciudad, el campo y el pueblo.
     void DrawUrbana(Shader& shader, GLint modelLoc);
     void DrawRural(Shader& shader, GLint modelLoc);
+    void DrawPuenteRural(Shader& shader, GLint modelLoc);
     void DrawPueblo(Shader& shader, GLint modelLoc);
 
     // Dibuja un animal de cuatro patas y mueve sus patas como si caminara.

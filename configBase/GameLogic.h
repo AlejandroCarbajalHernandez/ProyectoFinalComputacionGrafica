@@ -63,6 +63,9 @@ public:
     // Hidratación actual (100 es el máximo)
     float agua;
     const float AGUA_MAX = 100.0f;
+    // Cuánta agua se pierde por segundo según el bioma donde va el ciclista (sin contar la velocidad).
+    // main.cpp la usa para avisar en pantalla cuando hace calor.
+    float tasaAgua;
     // Botellas recogidas (suman puntos)
     int anforasRecogidas;
     // Clavos pisados (restan puntos)
@@ -118,6 +121,7 @@ public:
     void Reiniciar() {
         psi = PSI_MAX;
         agua = AGUA_MAX;
+        tasaAgua = 1.2f;
         anforasRecogidas = 0;
         clavosAtropellados = 0;
         tiempoTotal = 0.0f;
@@ -129,13 +133,15 @@ public:
         clavos.clear();
         talleres.clear();
 
-        // 1. Ánforas de agua
+        // 1. Botellas de agua (en el bioma árido hay más, porque ahí te deshidratas más rápido)
         anforas.push_back({ 25.0f,   0.3f, false });
         anforas.push_back({ 75.0f,  -0.4f, false });
         anforas.push_back({ 150.0f,  0.4f, false });
         anforas.push_back({ 240.0f, -0.3f, false });
         anforas.push_back({ 310.0f,  0.3f, false });
+        anforas.push_back({ 345.0f, -0.3f, false });
         anforas.push_back({ 365.0f, -0.4f, false });
+        anforas.push_back({ 392.0f,  0.3f, false });
         anforas.push_back({ 425.0f,  0.2f, false });
 
         // 2. Clavos
@@ -179,8 +185,14 @@ public:
             psi -= 0.15f * dt;
         }
 
-        // Consumo de agua: se gasta poco a poco y más rápido mientras más veloz va el ciclista.
-        agua -= (1.2f + (velocidadBici * 0.06f)) * dt;
+        // Consumo de agua: depende del bioma (el calor del árido y la terracería deshidrata más rápido que
+        // el bosque fresco) y además es mayor mientras más veloz va el ciclista.
+        if      (sJugador < 210.0f) tasaAgua = 1.2f;   // ciudad (Polanco)
+        else if (sJugador < 320.0f) tasaAgua = 0.8f;   // bosque de ocotes: fresco y húmedo
+        else if (sJugador < 415.0f) tasaAgua = 2.3f;   // bioma árido: calor
+        else if (sJugador < 475.0f) tasaAgua = 2.6f;   // terracería: calor y polvo
+        else                        tasaAgua = 1.2f;   // pueblo de Tepoztlán
+        agua -= (tasaAgua + (velocidadBici * 0.06f)) * dt;
 
         // Recoger botellas: si el ciclista pasa muy cerca de una, la recoge y recupera agua.
         for (auto& anf : anforas) {

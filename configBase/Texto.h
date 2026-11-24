@@ -1,7 +1,8 @@
 #pragma once
 // Texto.h: escribe texto y dibuja cuadros de color sobre la pantalla (menús, marcadores y minimapa).
-// Las letras se arman con pequeños cuadritos, así que no hacen falta librerías ni imágenes. Solo admite mayúsculas,
-// números y signos básicos. Las minúsculas se ven como mayúsculas y no se usan acentos (se escribe "CICLOVIA", no "CICLOVÍA").
+// Las letras se arman con pequeños cuadritos, así que no hacen falta librerías ni imágenes. Admite mayúsculas,
+// números y signos básicos. Las minúsculas se ven como mayúsculas. También dibuja Á É Í Ó Ú Ü Ñ ¿ ¡ (el acento se arma
+// con cuadritos extra encima de la letra). El texto puede estar guardado como UTF-8 o como ANSI: se entiende de las dos formas.
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -118,8 +119,55 @@ namespace Texto {
         if (programa) glDeleteProgram(programa);
     }
 
-    // Calcula cuánto mide de ancho un texto en pantalla, según su tamaño.
-    inline float Ancho(const std::string& s, float escala) { return s.size() * 6.0f * escala; }
+    // Lee el siguiente carácter del texto y avanza la posición "i".
+    // Acepta UTF-8 (Á = 2 bytes) y también texto ANSI/Latin-1 (Á = 1 byte), así que los acentos
+    // funcionan sin importar con qué codificación se guardó el archivo .cpp.
+    inline unsigned Siguiente(const std::string& s, size_t& i) {
+        auto cont = [&](size_t k) { return k < s.size() && (((unsigned char)s[k]) & 0xC0) == 0x80; };
+        unsigned char c = (unsigned char)s[i];
+        if (c < 0x80) { i++; return c; }
+        if (c >= 0xC2 && c <= 0xDF && cont(i + 1)) {
+            unsigned cp = ((c & 0x1Fu) << 6) | (((unsigned char)s[i + 1]) & 0x3Fu);
+            i += 2;
+            return cp;
+        }
+        if (c >= 0xE0 && c <= 0xEF && cont(i + 1) && cont(i + 2)) { i += 3; return '-'; }   // comillas, guiones largos...
+        i++;
+        return c;   // un solo byte: Latin-1
+    }
+
+    // Tipos de acento que se dibujan encima de la letra.
+    enum Acento { SIN_ACENTO, AGUDO, DIERESIS, TILDE };
+
+    // Dice qué dibujo de la fuente usar para un carácter, qué acento ponerle y si va de cabeza (¿ y ¡).
+    inline void Resolver(unsigned cp, int& idx, int& acento, bool& invertido) {
+        acento = SIN_ACENTO;
+        invertido = false;
+        if (cp >= 'a' && cp <= 'z') cp -= 32;                                // minúscula -> mayúscula
+        else if (cp >= 0xE0 && cp <= 0xFE && cp != 0xF7) cp -= 0x20;         // á é í ó ú ñ ü -> mayúsculas
+        char base = ' ';
+        switch (cp) {
+        case 0xC1: base = 'A'; acento = AGUDO;    break;   // Á
+        case 0xC9: base = 'E'; acento = AGUDO;    break;   // É
+        case 0xCD: base = 'I'; acento = AGUDO;    break;   // Í
+        case 0xD3: base = 'O'; acento = AGUDO;    break;   // Ó
+        case 0xDA: base = 'U'; acento = AGUDO;    break;   // Ú
+        case 0xDC: base = 'U'; acento = DIERESIS; break;   // Ü
+        case 0xD1: base = 'N'; acento = TILDE;    break;   // Ñ
+        case 0xBF: base = '?'; invertido = true;  break;   // ¿
+        case 0xA1: base = '!'; invertido = true;  break;   // ¡
+        default:   base = (cp < 128) ? (char)cp : ' ';     // lo desconocido se ve como espacio
+        }
+        idx = base - 32;
+        if (idx < 0 || idx > 63) idx = 0;
+    }
+
+    // Calcula cuánto mide de ancho un texto en pantalla, según su tamaño (cada letra cuenta una vez, aunque tenga acento).
+    inline float Ancho(const std::string& s, float escala) {
+        int letras = 0;
+        for (size_t i = 0; i < s.size(); letras++) Siguiente(s, i);
+        return letras * 6.0f * escala;
+    }
 
     // Escribe un texto en la posición indicada de la pantalla, con su tamaño y color, y opcionalmente con una sombra para que se lea mejor.
     inline void Dibujar(const std::string& texto, float x, float y, float escala,
@@ -135,16 +183,34 @@ namespace Texto {
             };
         // Se recorre cada letra del texto y se dibuja con sus cuadritos, una junto a otra.
         float cx = 0.0f;
-        for (char ch : texto) {
-            // Las minúsculas se convierten a mayúsculas.
-            if (ch >= 'a' && ch <= 'z') ch = ch - 'a' + 'A';
-            int idx = ch - 32;
-            // Si el carácter no existe en la fuente, se muestra un espacio.
-            if (idx < 0 || idx > 63) idx = 0;
-            for (int fila = 0; fila < 7; fila++)
+        for (size_t i = 0; i < texto.size(); ) {
+            // Se lee el carácter (con o sin acento); las minúsculas se convierten a mayúsculas.
+            int idx, acento;
+            bool invertido;
+            Resolver(Siguiente(texto, i), idx, acento, invertido);
+            for (int fila = 0; fila < 7; fila++) {
+                // Con ¿ y ¡ se dibuja la fila de abajo hacia arriba.
+                uint8_t bits = FUENTE[idx][invertido ? 6 - fila : fila];
                 for (int col = 0; col < 5; col++)
-                    if (FUENTE[idx][fila] & (1 << (4 - col)))
+                    if (bits & (1 << (4 - col)))
                         pixel(cx + col * escala, (6 - fila) * escala);
+            }
+            // El acento se dibuja con cuadritos extra, dejando un hueco sobre la letra (filas 8 y 9 contando desde abajo).
+            if (acento == AGUDO) {
+                pixel(cx + 2 * escala, 8 * escala);
+                pixel(cx + 3 * escala, 9 * escala);
+            }
+            else if (acento == DIERESIS) {
+                pixel(cx + 1 * escala, 8 * escala);
+                pixel(cx + 3 * escala, 8 * escala);
+            }
+            else if (acento == TILDE) {
+                pixel(cx + 1 * escala, 9 * escala);
+                pixel(cx + 2 * escala, 9 * escala);
+                pixel(cx + 4 * escala, 9 * escala);
+                pixel(cx + 0 * escala, 8 * escala);
+                pixel(cx + 3 * escala, 8 * escala);
+            }
             cx += 6.0f * escala;
         }
         if (v.empty()) return;

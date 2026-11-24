@@ -48,6 +48,7 @@ public:
     Model* casaRus1;
     Model* casaRus2;
     Model* casaRus3;
+    Model* estatua;   // Estatua ecuestre despues del cruce vial (lado izquierdo)
     // El semáforo del cruce.
     Semaforo* semaforo;
 

@@ -19,11 +19,13 @@
 #include "Ruta.h"
 #include "Skybox.h"
 #include "Texto.h"
+#include "Narracion.h"
 #include "Semaforo.h"
 
 // Prototipos de funciones de control, ciclo de vida e interfaz 2D
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void MouseCallback(GLFWwindow* window, double xPos, double yPos);
+void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void DoMovement();
 void ResetToStart();
 void PrintPosition();
@@ -57,7 +59,7 @@ GLfloat lastY = HEIGHT / 2.0f;
 bool keys[1024];
 bool firstMouse = true;
 
-int cameraMode = 0; // 0 = GoPro, 1 = Tercera Persona, 2 = Libre
+int cameraMode = 0; // 0 = GoPro, 1 = Tercera Persona, 2 = Libre, 3 = Aérea
 
 // Variables de tiempo, progreso en ruta y estados de interfaz
 GLfloat deltaTime = 0.0f;
@@ -66,6 +68,8 @@ float sJugador = 0.0f;
 int zonaActual = -1;
 float zonaTimer = 0.0f;
 bool enMenu = true;
+bool pausado = false;                       // Pausa del juego (tecla P o botón en pantalla)
+float btnPausa[4] = { 0, 0, 0, 0 };         // x, y, ancho, alto del botón de pausa (coordenadas de pantalla, origen abajo-izquierda)
 bool modoExploracionTepoz = false;
 
 // Variables de infracciones de tránsito, notificaciones y recorrido automático
@@ -101,7 +105,9 @@ int main() {
     // Registro de callbacks de teclado y ratón
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCursorPosCallback(window, MouseCallback);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
+    // El ratón solo se usa para mirar en la cámara libre (modo 2); en los demás modos queda visible y libre.
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     // Inicialización de GLEW
     glewExperimental = GL_TRUE;
@@ -143,6 +149,7 @@ int main() {
         GLfloat currentFrame = static_cast<GLfloat>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+        if (pausado) deltaTime = 0.0f;   // en pausa no avanza el tiempo del juego
 
         glfwPollEvents();
         DoMovement();
@@ -207,20 +214,34 @@ int main() {
             view = glm::lookAt(eyePos, centro, glm::vec3(0.0f, 1.0f, 0.0f));
         }
         else if (primeraPersona) {
-            glm::vec3 headOffset = glm::vec3(-sin(glm::radians(player.rotation)) * 0.15f, 0.75f, -cos(glm::radians(player.rotation)) * 0.15f);
+            glm::vec3 headOffset = glm::vec3(-sin(glm::radians(player.rotation)) * 0.15f, 0.95f, -cos(glm::radians(player.rotation)) * 0.15f);
             eyePos = player.position + headOffset;
-            glm::vec3 target = eyePos + front + glm::vec3(0.0f, -0.15f, 0.0f);
+            glm::vec3 target = eyePos + front + glm::vec3(0.0f, 0.10f, 0.0f);    // mira un poco hacia arriba para ver edificios altos completos
             view = glm::lookAt(eyePos, target, glm::vec3(0.0f, 1.0f, 0.0f));
         }
         else if (cameraMode == 1) {
-            glm::vec3 followOffset = glm::vec3(sin(glm::radians(player.rotation)) * 1.8f, 1.1f, cos(glm::radians(player.rotation)) * 1.8f);
+            // Tercera persona: cámara más alta y atrás, mirando un poco adelante de la bici para ver más camino y horizonte
+            glm::vec3 followOffset = glm::vec3(sin(glm::radians(player.rotation)) * 5.0f, 3.4f, cos(glm::radians(player.rotation)) * 5.0f);
             eyePos = player.position + followOffset;
-            glm::vec3 target = player.position + glm::vec3(0.0f, 0.55f, 0.0f);
+            glm::vec3 target = player.position + front * 4.0f + glm::vec3(0.0f, 0.9f, 0.0f);
             view = glm::lookAt(eyePos, target, glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+        else if (cameraMode == 3) {
+            // Vista aérea: más arriba y atrás para ver el entorno completo del recorrido
+            eyePos = player.position - front * 14.0f + glm::vec3(0.0f, 18.0f, 0.0f);
+            view = glm::lookAt(eyePos, player.position, glm::vec3(0.0f, 1.0f, 0.0f));
         }
         else {
             view = camera.GetViewMatrix();
             eyePos = camera.GetPosition();
+        }
+
+        // Campo de visión: casi igual al normal en tercera persona (para que no se deforme) y un poco más abierto en la vista aérea
+        {
+            static float fov = 68.0f;
+            float fovMeta = (tourAuto || cameraMode == 1) ? 68.0f : (cameraMode == 3 ? 75.0f : 68.0f);
+            fov += (fovMeta - fov) * std::min(1.0f, 4.0f * deltaTime);
+            projection = glm::perspective(glm::radians(fov), (GLfloat)SCREEN_WIDTH / (GLfloat)SCREEN_HEIGHT, 0.1f, 500.0f);
         }
 
         glUniform3f(glGetUniformLocation(lightingShader.Program, "viewPos"), eyePos.x, eyePos.y, eyePos.z);
@@ -271,30 +292,40 @@ int main() {
                 Texto::Dibujar(s, (W - Texto::Ancho(s, esc)) * 0.5f, y, esc, c, W, H);
                 };
 
-            Texto::Dibujar("LLANTAS (PSI)", 35.0f, 86.0f, 2.0f, BLANCO, W, H);
-            Texto::Dibujar("HIDRATACION", 35.0f, 56.0f, 2.0f, BLANCO, W, H);
+            Texto::Dibujar("LLANTAS (PSI)", 35.0f, 96.0f, 2.0f, BLANCO, W, H);
+            Texto::Dibujar("HIDRATACIÓN", 35.0f, 50.0f, 2.0f, BLANCO, W, H);
 
             // Panel superior de zona actual y objetivos del tramo
             const char* nombres[5] = {
                 "ZONA 1 - URBANA: POLANCO",
                 "ZONA 2 - RURAL: BOSQUE DE OCOTES",
-                "ZONA 2 - RURAL: BIOMA ARIDO",
-                "ZONA 2 - RURAL: TERRACERIA",
-                "ZONA 3 - TEPOZTLAN" };
+                "ZONA 2 - RURAL: BIOMA ÁRIDO",
+                "ZONA 2 - RURAL: TERRACERÍA",
+                "ZONA 3 - TEPOZTLÁN" };
             const char* tareas[5] = {
-                "TAREA: RESPETA EL SEMAFORO Y RECOGE AGUA",
-                "TAREA: ESQUIVA LOS CLAVOS Y RECOGE AGUA",
-                "TAREA: CRUZA EL TEPETATE Y CUIDA TU HIDRATACION",
-                "TAREA: LA TERRACERIA DESINFLA LAS LLANTAS",
-                "TAREA: LLEGA A LA PLAZA DE TEPOZTLAN" };
+                "TAREA: RESPETA EL SEMÁFORO, RECOGE BOTELLAS",
+                "TAREA: ESQUIVA LOS CLAVOS Y RECOGE BOTELLAS",
+                "TAREA: CRUZA EL TEPETATE Y CUIDA TU HIDRATACIÓN",
+                "TAREA: LA TERRACERÍA DESINFLA LAS LLANTAS",
+                "TAREA: LLEGA A LA PLAZA DE TEPOZTLÁN" };
             int z = (zonaActual < 0) ? 0 : zonaActual;
             Texto::Panel(20.0f, H - 110.0f, 640.0f, 95.0f, glm::vec4(0.0f, 0.0f, 0.0f, 0.45f), W, H);
             Texto::Dibujar(nombres[z], 32.0f, H - 40.0f, 3.0f, AMARILLO, W, H);
             Texto::Dibujar(tareas[z], 32.0f, H - 66.0f, 2.0f, BLANCO, W, H);
-            Texto::Dibujar("RECORRIDO: " + std::to_string((int)sJugador) + " / 530 M  ANFORAS: "
+            Texto::Dibujar("RECORRIDO: " + std::to_string((int)sJugador) + " / 530 M  BOTELLAS: "
                 + std::to_string(game.anforasRecogidas) + "/" + std::to_string((int)game.anforas.size())
                 + "  MULTAS: " + std::to_string(multasSemaforo),
                 32.0f, H - 92.0f, 2.0f, BLANCO, W, H);
+
+            // Caja de indicaciones / datos interesantes de la zona (abajo al centro)
+            if (game.estado == STATUS_JUGANDO) Narracion::Dibujar(W, H);
+
+            // Aviso de calor (debajo del panel de zona, arriba a la izquierda): en el árido y la terracería la hidratación baja más rápido
+            if (game.estado == STATUS_JUGANDO && game.tasaAgua > 2.0f) {
+                float parp = 0.65f + 0.35f * std::sin((float)glfwGetTime() * 5.0f);
+                Texto::Dibujar("¡CALOR! TE DESHIDRATAS MÁS RÁPIDO", 32.0f, H - 136.0f, 2.0f,
+                    glm::vec4(1.0f, 0.55f, 0.2f, parp), W, H);
+            }
 
             // Aviso grande de multa
             if (avisoTimer > 0.0f && game.estado == STATUS_JUGANDO) {
@@ -360,16 +391,16 @@ int main() {
                     std::string calif = (puntos >= 1400) ? "EXCELENTE" : (puntos >= 1100) ? "MUY BIEN" : (puntos >= 800) ? "BIEN" : "A MEJORAR";
 
                     Texto::Panel(0.0f, H * 0.15f, (float)W, H * 0.70f, glm::vec4(0.0f, 0.0f, 0.0f, 0.75f), W, H);
-                    centrado("LLEGASTE A TEPOZTLAN!", H * 0.74f, 7.0f, VERDE);
+                    centrado("¡LLEGASTE A TEPOZTLÁN!", H * 0.74f, 7.0f, VERDE);
                     centrado("RESUMEN DEL RECORRIDO", H * 0.66f, 3.0f, AMARILLO);
 
                     float x0 = W * 0.5f - 260.0f, y0 = H * 0.58f, dy = 30.0f;
                     Texto::Dibujar("TIEMPO ................ " + std::to_string((int)game.tiempoTotal) + " S", x0, y0, 2.5f, BLANCO, W, H);
-                    Texto::Dibujar("ANFORAS RECOGIDAS ..... " + std::to_string(game.anforasRecogidas) + "/" + std::to_string((int)game.anforas.size()), x0, y0 - dy, 2.5f, BLANCO, W, H);
+                    Texto::Dibujar("BOTELLAS RECOGIDAS .... " + std::to_string(game.anforasRecogidas) + "/" + std::to_string((int)game.anforas.size()), x0, y0 - dy, 2.5f, BLANCO, W, H);
                     Texto::Dibujar("CLAVOS ATROPELLADOS ... " + std::to_string(game.clavosAtropellados), x0, y0 - 2 * dy, 2.5f, BLANCO, W, H);
-                    Texto::Dibujar("MULTAS DE SEMAFORO .... " + std::to_string(multasSemaforo), x0, y0 - 3 * dy, 2.5f, BLANCO, W, H);
+                    Texto::Dibujar("MULTAS DE SEMÁFORO .... " + std::to_string(multasSemaforo), x0, y0 - 3 * dy, 2.5f, BLANCO, W, H);
                     Texto::Dibujar("LLANTAS AL LLEGAR ..... " + std::to_string((int)game.psi) + " PSI", x0, y0 - 4 * dy, 2.5f, BLANCO, W, H);
-                    Texto::Dibujar("HIDRATACION ........... " + std::to_string((int)game.agua) + " %", x0, y0 - 5 * dy, 2.5f, BLANCO, W, H);
+                    Texto::Dibujar("HIDRATACIÓN ........... " + std::to_string((int)game.agua) + " %", x0, y0 - 5 * dy, 2.5f, BLANCO, W, H);
 
                     centrado("PUNTOS: " + std::to_string(puntos) + "   " + calif, H * 0.30f, 4.0f, AMARILLO);
 
@@ -384,39 +415,56 @@ int main() {
                 }
                 else {
                     Texto::Panel(0.0f, H * 0.35f, (float)W, H * 0.30f, glm::vec4(0.0f, 0.0f, 0.0f, 0.65f), W, H);
-                    centrado(game.estado == STATUS_GAME_OVER_PONCHADURA ? "LLANTA PONCHADA" : "DESHIDRATACION",
+                    centrado(game.estado == STATUS_GAME_OVER_PONCHADURA ? "LLANTA PONCHADA" : "DESHIDRATACIÓN",
                         H * 0.52f, 7.0f, ROJO);
                     centrado("PRESIONA R PARA REINICIAR", H * 0.39f, 3.0f, BLANCO);
                 }
             }
 
+            // Botón de pausa (arriba al centro) y pantalla de pausa
+            if (!enMenu && game.estado == STATUS_JUGANDO) {
+                btnPausa[2] = 190.0f; btnPausa[3] = 34.0f;
+                btnPausa[0] = (W - btnPausa[2]) * 0.5f; btnPausa[1] = H - 50.0f;
+                Texto::Panel(btnPausa[0], btnPausa[1], btnPausa[2], btnPausa[3],
+                    pausado ? glm::vec4(0.85f, 0.45f, 0.05f, 0.90f) : glm::vec4(0.0f, 0.0f, 0.0f, 0.55f), W, H);
+                Texto::Dibujar(pausado ? "[P] CONTINUAR" : "[P] PAUSA", btnPausa[0] + 14.0f, btnPausa[1] + 10.0f, 2.0f, BLANCO, W, H);
+            }
+            else { btnPausa[2] = 0.0f; btnPausa[3] = 0.0f; }
+            if (pausado && !enMenu) {
+                Texto::Panel(0.0f, H * 0.38f, (float)W, H * 0.24f, glm::vec4(0.0f, 0.0f, 0.0f, 0.70f), W, H);
+                centrado("PAUSA", H * 0.53f, 6.0f, AMARILLO);
+                centrado("P O CLIC EN EL BOTÓN: CONTINUAR   |   H: AYUDA   |   ESC: SALIR", H * 0.43f, 2.0f, BLANCO);
+            }
+
             // Menú de Inicio / Ayuda
             if (enMenu) {
                 Texto::Panel(0.0f, 0.0f, (float)W, (float)H, glm::vec4(0.0f, 0.0f, 0.0f, 0.78f), W, H);
-                centrado("CICLOVIA FERROCARRIL DE CUERNAVACA", H * 0.82f, 5.0f, AMARILLO);
-                centrado("CDMX - TEPOZTLAN   |   CICLISMO", H * 0.75f, 2.5f, BLANCO);
+                centrado("CICLOVÍA FERROCARRIL DE CUERNAVACA", H * 0.82f, 5.0f, AMARILLO);
+                centrado("CDMX - TEPOZTLÁN   |   CICLISMO", H * 0.75f, 2.5f, BLANCO);
 
                 const char* controles[] = {
                     "W / FLECHA ARRIBA ... PEDALEAR",
                     "S / FLECHA ABAJO .... FRENAR",
                     "A D / FLECHAS ....... GIRAR",
                     "SHIFT ............... IMPULSO",
-                    "C ................... CAMBIAR CAMARA",
+                    "C ................... CAMBIAR CÁMARA",
                     "F ................... FARO ON/OFF",
-                    "N ................... DIA / NOCHE",
+                    "N ................... DÍA / NOCHE",
                     "1 A 5 ............... SALTAR A UNA ZONA",
                     "R ................... REINICIAR",
-                    "T ................... RECORRIDO AUTOMATICO",
+                    "T ................... RECORRIDO AUTOMÁTICO",
+                    "P ................... PAUSA / CONTINUAR",
                     "H ................... AYUDA",
+                    "TAB ................. LIBERAR / CAPTURAR RATON",
                     "ESC ................. SALIR" };
-                float yc = H * 0.66f;
+                float yc = H * 0.70f;
                 for (const char* linea : controles) {
                     Texto::Dibujar(linea, W * 0.5f - 270.0f, yc, 2.5f, BLANCO, W, H);
-                    yc -= 24.0f;
+                    yc -= 22.0f;
                 }
 
-                centrado("OBJETIVO: LLEGA A TEPOZTLAN SIN PONCHAR NI DESHIDRATARTE", H * 0.25f, 2.5f, AMARILLO);
-                centrado("RECOGE ANFORAS DE AGUA, ESQUIVA LOS CLAVOS E INFLA EN LOS TALLERES", H * 0.20f, 2.0f, BLANCO);
+                centrado("OBJETIVO: LLEGA A TEPOZTLÁN SIN PONCHAR NI DESHIDRATARTE", H * 0.25f, 2.5f, AMARILLO);
+                centrado("RECOGE BOTELLAS DE AGUA, ESQUIVA LOS CLAVOS E INFLA EN LOS TALLERES", H * 0.20f, 2.0f, BLANCO);
 
                 float parpadeo = 0.55f + 0.45f * std::sin((float)glfwGetTime() * 4.0f);
                 centrado(game.tiempoTotal > 0.0f ? "PRESIONA H PARA CONTINUAR" : "PRESIONA ENTER PARA COMENZAR",
@@ -442,7 +490,7 @@ int main() {
 
 // Actualiza posición sobre la ruta, lógica de juego, infracciones y movimiento del jugador
 void DoMovement() {
-    if (enMenu) return;
+    if (enMenu || pausado) return;
     static glm::vec3 prevPos = player.position;
     float velocidadReal = glm::length(player.position - prevPos) / (deltaTime > 0.0001f ? deltaTime : 0.016f);
     prevPos = player.position;
@@ -513,7 +561,7 @@ void DoMovement() {
                 && Semaforo::FaseEn((float)glfwGetTime()) == Semaforo::ROJO) {
                 game.psi = std::max(0.0f, game.psi - 5.0f);
                 multasSemaforo++;
-                avisoTexto = "CRUZASTE EN ROJO! -5 PSI";
+                avisoTexto = "¡CRUZASTE EN ROJO! -5 PSI";
                 avisoTimer = 3.0f;
             }
         }
@@ -525,6 +573,9 @@ void DoMovement() {
     int zonaNueva = (sActual < 210.0f) ? 0 : (sActual < 320.0f) ? 1 : (sActual < 415.0f) ? 2 : (sActual < 475.0f) ? 3 : 4;
     if (zonaNueva != zonaActual) { zonaActual = zonaNueva; zonaTimer = 4.0f; }
     if (zonaTimer > 0.0f) zonaTimer -= deltaTime;
+
+    // Cajas de indicaciones y datos interesantes por zona (ver Narracion.h)
+    if (game.estado == STATUS_JUGANDO) Narracion::Actualizar(sActual, deltaTime);
 
     // Notificaciones en consola al cambiar el estado de la partida
     if (game.estado != estadoAnterior) {
@@ -609,7 +660,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
     }
 
     if (key == GLFW_KEY_C && action == GLFW_PRESS) {
-        cameraMode = (cameraMode + 1) % 3;
+        cameraMode = (cameraMode + 1) % 4;
+        // Cámara libre: el ratón se captura para mirar. En las demás cámaras el ratón queda libre para usar la ventana.
+        glfwSetInputMode(window, GLFW_CURSOR, cameraMode == 2 ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        firstMouse = true;
     }
 
     if (key == GLFW_KEY_ENTER && action == GLFW_PRESS) {
@@ -621,6 +675,18 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
             game.estado = STATUS_JUGANDO;
             modoExploracionTepoz = true;
         }
+    }
+
+    // TAB: libera o captura el ratón en cualquier momento (por si quedó atrapado en la ventana)
+    if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
+        bool libre = (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL);
+        glfwSetInputMode(window, GLFW_CURSOR, libre ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        firstMouse = true;
+    }
+
+    // P: pausa / continuar (solo durante la partida)
+    if (key == GLFW_KEY_P && action == GLFW_PRESS && !enMenu && game.estado == STATUS_JUGANDO) {
+        pausado = !pausado;
     }
 
     if (key == GLFW_KEY_H && action == GLFW_PRESS) {
@@ -647,10 +713,12 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 
 // Restaura al jugador, la cámara y las variables de partida al inicio de la ruta
 void ResetToStart() {
+    pausado = false;
     player.position = startPosition;
     player.rotation = startRotation;
 
     game.Reiniciar();
+    Narracion::Reiniciar();
     zonaActual = -1;
     multasSemaforo = 0;
     avisoTimer = 0.0f;
@@ -675,6 +743,21 @@ void PrintPosition() {
 }
 
 // Procesa el movimiento del ratón para orientar la cámara en modo libre
+// Clic izquierdo sobre el botón de pausa
+void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    if (button != GLFW_MOUSE_BUTTON_LEFT || action != GLFW_PRESS) return;
+    if (enMenu || btnPausa[2] <= 0.0f) return;
+    if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) return;
+    double mx, my; int ww, wh, fw, fh;
+    glfwGetCursorPos(window, &mx, &my);
+    glfwGetWindowSize(window, &ww, &wh);
+    glfwGetFramebufferSize(window, &fw, &fh);
+    float x = (float)mx * fw / (float)ww;
+    float y = fh - (float)my * fh / (float)wh;   // origen abajo-izquierda, igual que Texto
+    if (x >= btnPausa[0] && x <= btnPausa[0] + btnPausa[2] && y >= btnPausa[1] && y <= btnPausa[1] + btnPausa[3])
+        pausado = !pausado;
+}
+
 void MouseCallback(GLFWwindow* window, double xPos, double yPos) {
     if (firstMouse) {
         lastX = static_cast<GLfloat>(xPos);
@@ -773,15 +856,15 @@ void RenderHUD(float psi, float maxPsi, float agua, float maxAgua, int screenWid
     const float ALTO_BARRA = 16.0f;
 
     // Barra de presión de neumáticos (cambia de color según el nivel crítico)
-    drawBarra(MARGEN_X - 2.0f, 65.0f - 2.0f, ANCHO_TOTAL + 4.0f, ALTO_BARRA + 4.0f, glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
+    drawBarra(MARGEN_X - 2.0f, 74.0f - 2.0f, ANCHO_TOTAL + 4.0f, ALTO_BARRA + 4.0f, glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
     float pctPsi = std::max(0.0f, std::min(1.0f, psi / maxPsi));
     glm::vec4 colPsi = (pctPsi > 0.45f) ? glm::vec4(0.2f, 0.85f, 0.25f, 1.0f) : (pctPsi > 0.20f ? glm::vec4(0.95f, 0.75f, 0.1f, 1.0f) : glm::vec4(0.9f, 0.15f, 0.15f, 1.0f));
-    drawBarra(MARGEN_X, 65.0f, ANCHO_TOTAL * pctPsi, ALTO_BARRA, colPsi);
+    drawBarra(MARGEN_X, 74.0f, ANCHO_TOTAL * pctPsi, ALTO_BARRA, colPsi);
 
     // Barra de nivel de hidratación
-    drawBarra(MARGEN_X - 2.0f, 35.0f - 2.0f, ANCHO_TOTAL + 4.0f, ALTO_BARRA + 4.0f, glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
+    drawBarra(MARGEN_X - 2.0f, 26.0f - 2.0f, ANCHO_TOTAL + 4.0f, ALTO_BARRA + 4.0f, glm::vec4(0.1f, 0.1f, 0.1f, 0.8f));
     float pctAgua = std::max(0.0f, std::min(1.0f, agua / maxAgua));
-    drawBarra(MARGEN_X, 35.0f, ANCHO_TOTAL * pctAgua, ALTO_BARRA, glm::vec4(0.15f, 0.60f, 0.95f, 1.0f));
+    drawBarra(MARGEN_X, 26.0f, ANCHO_TOTAL * pctAgua, ALTO_BARRA, glm::vec4(0.15f, 0.60f, 0.95f, 1.0f));
 
     glBindVertexArray(0);
     glEnable(GL_DEPTH_TEST);
