@@ -226,19 +226,15 @@ int main() {
         glm::mat4 view;
         glm::vec3 eyePos;
 
-        int planoTour = ((int)(tourT / 12.0f)) % 5;
-        bool primeraPersona = tourAuto ? (planoTour == 4) : (cameraMode == 0);
+        // Recorrido automático: cámara fija en tercera persona (sin cambios de plano)
+        bool primeraPersona = tourAuto ? false : (cameraMode == 0);
 
-        if (tourAuto && planoTour != 4) {
+        if (tourAuto) {
             float r = glm::radians(player.rotation);
             glm::vec3 fwd(-std::sin(r), 0.0f, -std::cos(r));
-            glm::vec3 der(std::cos(r), 0.0f, -std::sin(r));
-            glm::vec3 centro = player.position + glm::vec3(0.0f, 0.7f, 0.0f);
-            if (planoTour == 0)      eyePos = player.position - fwd * 2.8f + glm::vec3(0.0f, 1.4f, 0.0f);
-            else if (planoTour == 1) eyePos = centro + der * 4.5f + fwd * 1.0f + glm::vec3(0.0f, 0.6f, 0.0f);
-            else if (planoTour == 2) eyePos = player.position - fwd * 9.0f + glm::vec3(0.0f, 6.0f, 0.0f);
-            else                     eyePos = centro + fwd * 6.0f + glm::vec3(0.0f, 0.8f, 0.0f);
-            view = glm::lookAt(eyePos, centro, glm::vec3(0.0f, 1.0f, 0.0f));
+            eyePos = player.position - fwd * 5.0f + glm::vec3(0.0f, 3.0f, 0.0f);
+            glm::vec3 target = player.position + fwd * 4.0f + glm::vec3(0.0f, 0.9f, 0.0f);
+            view = glm::lookAt(eyePos, target, glm::vec3(0.0f, 1.0f, 0.0f));
         }
         else if (primeraPersona) {
             glm::vec3 headOffset = glm::vec3(-sin(glm::radians(player.rotation)) * 0.15f, 0.95f, -cos(glm::radians(player.rotation)) * 0.15f);
@@ -371,7 +367,7 @@ int main() {
                 + "  MULTAS: " + std::to_string(multasSemaforo),
                 32.0f, H - 92.0f, 2.0f, BLANCO, W, H);
             Texto::Dibujar("RECUERDOS: " + std::to_string(game.recuerdosRecogidos) + "/" + std::to_string((int)game.recuerdos.size())
-                + "  VERSIÓN: " + NOMBRE_DIF[game.dificultad],
+                + "  VERSIÓN: " + (tourAuto ? std::string("DEMO") : std::string(NOMBRE_DIF[game.dificultad])),
                 32.0f, H - 118.0f, 2.0f, glm::vec4(1.0f, 0.85f, 0.2f, 1.0f), W, H);
 
             // Versión avanzada: cuenta regresiva del tiempo límite
@@ -388,11 +384,15 @@ int main() {
             // Caja de indicaciones / datos interesantes de la zona (abajo al centro)
             if (game.estado == STATUS_JUGANDO) Narracion::Dibujar(W, H);
 
-            // Aviso de calor (debajo del panel de zona, arriba a la izquierda): en el árido y la terracería la hidratación baja más rápido
+            // Aviso de calor (arriba a la derecha): en el árido y la terracería la hidratación baja más rápido
             if (game.estado == STATUS_JUGANDO && game.tasaAgua > 2.0f) {
                 float parp = 0.65f + 0.35f * std::sin((float)glfwGetTime() * 5.0f);
-                Texto::Dibujar("¡CALOR! TE DESHIDRATAS MÁS RÁPIDO", 32.0f, H - 160.0f, 2.0f,
+                const std::string txtCalor = "¡CALOR! HIDRÁTATE: TE DESHIDRATAS MÁS RÁPIDO";
+                float anchoC = Texto::Ancho(txtCalor, 2.0f);
+                Texto::Panel(W - anchoC - 40.0f, 16.0f, anchoC + 28.0f, 36.0f, glm::vec4(0.0f, 0.0f, 0.0f, 0.55f), W, H);
+                Texto::Dibujar(txtCalor, W - anchoC - 26.0f, 26.0f, 2.0f,
                     glm::vec4(1.0f, 0.55f, 0.2f, parp), W, H);
+            
             }
 
             // Aviso grande de multa
@@ -515,7 +515,7 @@ int main() {
                     float btnX = (W - btnW) * 0.5f;
                     float btnY = H - 478.0f;
                     Texto::Panel(btnX, btnY, btnW, btnH, glm::vec4(0.12f, 0.50f, 0.90f, 0.90f), W, H);
-                    centrado("MODO TURISTA [ ENTER ]", btnY + 10.0f, 2.3f, BLANCO);
+                    centrado((tourAuto ? "EXPLORAR LIBREMENTE [ ENTER ]" : "MODO TURISTA [ ENTER ]"), btnY + 10.0f, 2.3f, BLANCO);
 
                     centrado("R: REINTENTAR     M: CAMBIAR DE VERSIÓN", H - 525.0f, 2.5f, BLANCO);
                 }
@@ -596,7 +596,7 @@ int main() {
                 const char* col1[] = { "W / FLECHA ARRIBA .. PEDALEAR", "S / FLECHA ABAJO ... FRENAR", "A D / FLECHAS ..... GIRAR",
                     "SHIFT ............. IMPULSO", "C ................. CAMBIAR CÁMARA", "P ................. PAUSA", "H ................. AYUDA" };
                 const char* col2[] = { "F ................. FARO ON/OFF", "N ................. DÍA / NOCHE", "R ................. REINTENTAR",
-                    "M ................. CAMBIAR VERSIÓN", "T ................. RECORRIDO AUTOMÁTICO", "TAB ............... LIBERAR RATÓN", "ESC ............... SALIR" };
+                    "M ................. CAMBIAR VERSIÓN", "T ................. VERSIÓN DEMO (SOLO AQUÍ)", "TAB ............... LIBERAR RATÓN", "ESC ............... SALIR" };
                 float yc = H * 0.78f - ch - 28.0f;
                 Texto::Dibujar("CONTROLES", W * 0.5f - Texto::Ancho("CONTROLES", 2.5f) * 0.5f, yc + 6.0f, 2.5f, AMARILLO, W, H);
                 yc -= 24.0f;
@@ -605,7 +605,8 @@ int main() {
                     Texto::Dibujar(col2[i], W * 0.5f + 20.0f, yc, 2.0f, BLANCO, W, H);
                     yc -= 22.0f;
                 }
-                centrado("1 2 3 O FLECHAS: ELEGIR VERSIÓN", H * 0.105f, 2.2f, glm::vec4(0.6f, 0.85f, 1.0f, 1.0f));
+                centrado("1 2 3 O FLECHAS: ELEGIR VERSIÓN", H * 0.115f, 2.2f, glm::vec4(0.6f, 0.85f, 1.0f, 1.0f));
+                centrado("T: VERSIÓN DEMO (RECORRIDO AUTOMÁTICO, AL TERMINAR PODRÁS EXPLORAR LIBREMENTE)", H * 0.075f, 2.0f, glm::vec4(1.0f, 0.85f, 0.2f, 1.0f));
                 centrado(std::string("ENTER: COMENZAR EN VERSIÓN ") + NOMBRE_DIF[seleccionDif], H * 0.045f, 3.0f, VERDE_P);
             }
             else if (enMenu) {
@@ -624,7 +625,6 @@ int main() {
                     "N ................... DÍA / NOCHE",
                     "R ................... REINTENTAR",
                     "M ................... CAMBIAR DE VERSIÓN",
-                    "T ................... RECORRIDO AUTOMÁTICO",
                     "P ................... PAUSA / CONTINUAR",
                     "H ................... AYUDA",
                     "TAB ................. LIBERAR / CAPTURAR RATON",
@@ -918,6 +918,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
         else if (game.estado == STATUS_VICTORIA) {
             game.estado = STATUS_JUGANDO;
             modoExploracionTepoz = true;
+            if (tourAuto) { tourAuto = false; cameraMode = 1; }   // fin de la demo: ya puedes moverte libremente
         }
     }
 
@@ -941,15 +942,20 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
     if (key == GLFW_KEY_M && action == GLFW_PRESS && !enBienvenida) {
         partidaIniciada = false;
         enMenu = true;
+        tourAuto = false;
+        modoExploracionTepoz = false;
         ResetToStart();
     }
 
-    if (key == GLFW_KEY_T && action == GLFW_PRESS && !enMenu) {
-        tourAuto = !tourAuto;
-        if (tourAuto) {
-            ResetToStart();
-            tourT = 0.0f;
-        }
+    // T: versión demo, solo desde el menú de selección de versión
+    if (key == GLFW_KEY_T && action == GLFW_PRESS && enMenu && !enBienvenida && !partidaIniciada) {
+        game.dificultad = DIF_BASICA;
+        partidaIniciada = true;
+        ResetToStart();
+        tourAuto = true;
+        tourT = 0.0f;
+        enMenu = false;
+        zonaActual = -1;
     }
 
     if (key == GLFW_KEY_R && action == GLFW_PRESS && !enBienvenida && !enMenu) {
