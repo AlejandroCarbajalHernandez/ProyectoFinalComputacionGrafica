@@ -14,7 +14,6 @@ TepoztlanScene::TepoztlanScene() {
     letrero = nullptr;
     mercado = nullptr;
     meta = nullptr;
-    cerro = nullptr;
     worldMatrix = glm::mat4(1.0f);
 }
 
@@ -27,7 +26,6 @@ TepoztlanScene::~TepoztlanScene() {
     delete letrero;
     delete mercado;
     delete meta;
-    delete cerro;
 }
 
 // Carga desde disco los archivos .obj correspondientes a la arquitectura y arco de meta del destino
@@ -39,7 +37,6 @@ void TepoztlanScene::Init() {
     letrero = new Model((char*)"../assets/obj/LetreroTepoztlan/LetreroTepoztlan.obj");
     mercado = new Model((char*)"../assets/obj/MercadoMunicipal/MercadoMunicipal.obj");
     meta = new Model((char*)"../assets/obj/meta/meta.obj");
-    cerro = new Model((char*)"../assets/obj/cerro/cerro.obj");
 }
 
 // Posiciona y renderiza todos los elementos de Tepoztlán relativos a worldMatrix (metro 475 de la ruta)

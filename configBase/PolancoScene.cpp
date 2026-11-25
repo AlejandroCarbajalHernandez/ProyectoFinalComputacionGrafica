@@ -44,8 +44,8 @@ static const float MUSEO_VISTA_S_FIN = 30.0f;
 static const float EDIF_AB_ESC = 3.0f;
 static const float EDIFA_Y = 0.0f;
 static const float EDIFB_Y = 0.0f;
-static const float CASA1_ESC = 0.75f;
-static const float CASA1_Y = -1.15f;
+static const float CASA1_ESC = 1.5f;
+static const float CASA1_Y = -2.0f;
 
 // Puntos de vista predefinidos para alinear la escena urbana con el inicio de la ruta
 static const PolancoScene::Viewpoint VIEWPOINTS[PolancoScene::VIEWPOINT_COUNT] = {
@@ -125,7 +125,7 @@ void PolancoScene::Init() {
     cono = new Model((char*)"../assets/obj/Polanco/Cono.obj");
     puente = new Model((char*)"../assets/obj/Polanco/Puente.obj");
     vias = new Model((char*)"../assets/obj/Polanco/ViaTren.obj");
-    arbol = new Model((char*)"../assets/obj/Polanco/ArbolTex.obj");
+    arbol = new Model((char*)"../assets/obj/Polanco/Arbol.obj");
     luminaria = new Model((char*)"../assets/obj/Polanco/Luminaria.obj");
     camellon = new Model((char*)"../assets/obj/Polanco/CamellonArbolado.obj");
 
@@ -155,7 +155,7 @@ void PolancoScene::Init() {
     torreCil->SetReflectivityMaterial("Vidrio", 0.20f);
 
     // Vialidades y edificaciones complementarias
-    // carretera paralela eliminada (no se carga; el bloque "8. Carretera paralela" no se dibuja)
+    carretera = new Model((char*)"../assets/obj/Polanco/Carretera.obj");
     carreteraCruce = new Model((char*)"../assets/obj/Polanco/CarreteraCruce.obj");
     edificio1 = new Model((char*)"../assets/obj/Polanco/edificio-01.obj");
     edificio2 = new Model((char*)"../assets/obj/Polanco/edificio-02.obj");
@@ -228,6 +228,10 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         b = glm::translate(b, m.pos);
         b = glm::rotate(b, glm::radians(m.headingDeg), glm::vec3(0.0f, 1.0f, 0.0f));
         return b;
+        };
+
+    auto EnMuseo = [&](float z) {
+        return (z < MUSEO_Z_INI && z > MUSEO_Z_FIN);
         };
 
     glm::mat4 model(1.0f);
@@ -326,10 +330,17 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         model = glm::rotate(model, glm::radians(e.rotY), glm::vec3(0.0f, 1.0f, 0.0f));
         if (e.esc != 1.0f) model = glm::scale(model, glm::vec3(e.esc));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1f(locRefl, e.refl);
-        e.m->Draw(shader);
+        casa1->Draw(shader);
     }
-    glUniform1f(locRefl, 0.0f);
+
+    if (casa2) {
+        model = Base(-180.0f);
+        model = glm::translate(model, glm::vec3(45.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.8f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        casa2->Draw(shader);
+    }
 
     // 6. Edificios z > 0 (tramo previo)
     if (edificio1) {
@@ -378,9 +389,16 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
         torreBal->Draw(shader);
     }
 
+    if (techoVerde) {
+        model = Base(100.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        techoVerde->Draw(shader);
+    }
+
     // 7. Árboles y luminarias
     if (arbol) {
-        for (float z = 5.0f; z > -192.0f; z -= 12.0f) {
+        for (float z = 5.0f; z > -150.0f; z -= 12.0f) {
             model = Base(z); model = glm::translate(model, glm::vec3(16.0f, 0.0f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); arbol->Draw(shader);
 
@@ -393,7 +411,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
     }
 
     if (luminaria) {
-        for (float z = 0.0f; z > -190.0f; z -= 22.0f) {
+        for (float z = 0.0f; z > -140.0f; z -= 22.0f) {
             model = Base(z); model = glm::translate(model, glm::vec3(19.0f, 0.0f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); luminaria->Draw(shader);
         }
@@ -453,7 +471,7 @@ void PolancoScene::Draw(Shader& shader, GLint modelLoc) {
 
     // 8. Carretera paralela
     if (carretera) {
-        for (float z = 10.0f; z > -192.0f; z -= 10.0f) {
+        for (float z = 10.0f; z > -170.0f; z -= 10.0f) {
             model = Base(z);
             model = glm::translate(model, glm::vec3(27.0f, 0.01f, 0.0f));
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
