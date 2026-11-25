@@ -17,10 +17,12 @@ public:
     enum Fase { VERDE = 0, AMBAR = 1, ROJO = 2 };
 
     // Parte que usa el juego completo (main.cpp y CicloviaScene)
-    // Segundos que dura cada luz en los semáforos de la ciclovía.
-    static constexpr float T_VERDE = 6.0f;
+    // Segundos que dura cada luz. Es el MISMO ciclo para todos los semáforos del juego (los de la ciclovía,
+    // los de Polanco y los del cruce), para que estén sincronizados entre sí y con las multas de main.cpp.
+    // El rojo dura 12 s porque incluye 2 s de "todo en rojo" antes de que los coches del cruce avancen.
+    static constexpr float T_VERDE = 8.0f;
     static constexpr float T_AMBAR = 2.0f;
-    static constexpr float T_ROJO = 6.0f;
+    static constexpr float T_ROJO = 12.0f;
     // Distancia (en metros desde la salida) donde están los dos semáforos de la ruta.
     static constexpr float POSICIONES[2] = { 55.0f, 190.0f };
 
@@ -38,9 +40,9 @@ public:
 
     // Parte que usa la escena de Polanco (el cruce con semáforo)
     // Segundos que dura cada luz en el semáforo del cruce de Polanco.
-    float tVerde = 8.0f;
-    float tAmbar = 2.0f;
-    float tRojo = 8.0f;
+    float tVerde = T_VERDE;
+    float tAmbar = T_AMBAR;
+    float tRojo = T_ROJO;
     // Segundos finales de la luz verde en los que parpadea para avisar que va a cambiar.
     float parpadeoFinal = 1.5f;
 
