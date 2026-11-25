@@ -21,6 +21,7 @@
 #include "Texto.h"
 #include "Narracion.h"
 #include "Semaforo.h"
+#include "AudioAmbiente.h"
 
 // Prototipos de funciones de control, ciclo de vida e interfaz 2D
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -75,7 +76,7 @@ bool modoExploracionTepoz = false;
 // Pantallas de inicio y versión del juego
 bool enBienvenida = true;      // ventana de bienvenida al abrir el programa
 bool partidaIniciada = false;  // false = se está eligiendo la versión; true = ya se empezó a jugar
-int seleccionDif = 0;          // 0 = básica, 1 = intermedia, 2 = avanzada (la que está resaltada en el menú)
+int seleccionDif = 0;          // 0 = novato (antes básica), 1 = intermedia, 2 = avanzada (la que está resaltada en el menú)
 
 // Ayudas contextuales (según la versión) y avisos de recuerdos turísticos
 bool vistoAyuda[4] = { false, false, false, false };   // intermedia: ya se mostró la ayuda de botella, semáforo, bomba, clavo
@@ -84,7 +85,7 @@ float consejoTimer = 0.0f;
 std::string consejoTitulo, consejoTexto;
 float recuerdoTimer = 0.0f;
 std::string recuerdoTitulo, recuerdoTexto;
-const char* NOMBRE_DIF[3] = { "BÁSICA", "INTERMEDIA", "AVANZADA" };
+const char* NOMBRE_DIF[3] = { "NOVATO", "INTERMEDIA", "AVANZADA" };
 
 // Muestra una ayuda corta. tipo: 0 botella, 1 semáforo, 2 bomba, 3 clavo.
 // Básica: siempre. Intermedia: solo la primera vez de cada tipo. Avanzada: nunca.
@@ -102,6 +103,9 @@ void MostrarConsejo(int tipo, const std::string& titulo, const std::string& text
 // Variables de infracciones de tránsito, notificaciones y recorrido automático
 int multasSemaforo = 0;
 float avisoTimer = 0.0f;
+float fueraPistaTimer = 0.0f;   // segundos seguidos fuera de la pista (aviso de novato e intermedia)
+float avisoPistaTimer = 0.0f;   // intermedia: duración del aviso (solo se muestra la primera vez)
+bool vistoAvisoPista = false;   // intermedia: ya se avisó una vez en esta partida
 std::string avisoTexto;
 bool tourAuto = false;
 float tourT = 0.0f;
@@ -127,6 +131,7 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
+    Audio::Iniciar();   // sonido ambiental por zona (carpeta Sonidos)
     glfwGetFramebufferSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
 
     // Registro de callbacks de teclado y ratón
@@ -177,6 +182,7 @@ int main() {
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
         if (pausado) deltaTime = 0.0f;   // en pausa no avanza el tiempo del juego
+        Audio::Actualizar(zonaActual, enBienvenida || enMenu, pausado);   // ambiente según la zona
 
         glfwPollEvents();
         DoMovement();
@@ -395,6 +401,16 @@ int main() {
             
             }
 
+            // Aviso al salirse de la pista: novato cada vez; intermedia solo la primera vez
+            bool mostrarAvisoPista = (game.dificultad == DIF_BASICA && fueraPistaTimer > 0.3f)
+                || (game.dificultad == DIF_INTERMEDIA && avisoPistaTimer > 0.0f);
+            if (mostrarAvisoPista && game.estado == STATUS_JUGANDO && !pausado && !enMenu) {
+                float parp = 0.7f + 0.3f * std::sin((float)glfwGetTime() * 6.0f);
+                Texto::Panel((W - 860.0f) * 0.5f, H * 0.30f - 46.0f, 860.0f, 92.0f, glm::vec4(0.0f, 0.0f, 0.0f, 0.60f), W, H);
+                centrado("¡TE SALISTE DE LA PISTA!", H * 0.30f + 10.0f, 4.0f, glm::vec4(1.0f, 0.55f, 0.2f, parp));
+                centrado("REGRESA AL CAMINO: TUS LLANTAS SE DESGASTAN MÁS RÁPIDO", H * 0.30f - 28.0f, 2.2f, BLANCO);
+            }
+
             // Aviso grande de multa
             if (avisoTimer > 0.0f && game.estado == STATUS_JUGANDO) {
                 centrado(avisoTexto, H * 0.45f, 4.0f, glm::vec4(1.0f, 0.3f, 0.3f, std::min(1.0f, avisoTimer)));
@@ -535,6 +551,8 @@ int main() {
                 Texto::Panel(btnPausa[0], btnPausa[1], btnPausa[2], btnPausa[3],
                     pausado ? glm::vec4(0.85f, 0.45f, 0.05f, 0.90f) : glm::vec4(0.0f, 0.0f, 0.0f, 0.55f), W, H);
                 Texto::Dibujar(pausado ? "[P] CONTINUAR" : "[P] PAUSA", btnPausa[0] + 14.0f, btnPausa[1] + 10.0f, 2.0f, BLANCO, W, H);
+                Texto::Dibujar(Audio::Silenciado() ? "[V] SONIDO: NO" : "[V] SONIDO: SI", btnPausa[0] + btnPausa[2] + 14.0f, btnPausa[1] + 10.0f, 2.0f,
+                    Audio::Silenciado() ? glm::vec4(1.0f, 0.4f, 0.4f, 1.0f) : BLANCO, W, H);
             }
             else { btnPausa[2] = 0.0f; btnPausa[3] = 0.0f; }
             if (pausado && !enMenu) {
@@ -566,7 +584,7 @@ int main() {
                     px, y, pw, 2.2f, 28.0f, BLANCO) - 10.0f;
                 y = parrafo("Como buen turista, en cada zona busca el recuerdo dorado: con ellos armas tu pasaporte turístico y conoces la historia y la cultura del camino.",
                     px, y, pw, 2.2f, 28.0f, glm::vec4(1.0f, 0.85f, 0.2f, 1.0f)) - 10.0f;
-                parrafo("A continuación elegirás tu versión: básica, intermedia o avanzada, según tu experiencia con juegos y aplicaciones 3D.",
+                parrafo("A continuación elegirás tu versión: novato, intermedia o avanzada, según tu experiencia con juegos y aplicaciones 3D.",
                     px, y, pw, 2.2f, 28.0f, BLANCO);
                 centrado("PRESIONA ENTER PARA CONTINUAR", H * 0.07f, 3.5f, VERDE_P);
             }
@@ -594,13 +612,15 @@ int main() {
 
                 // Controles (dos columnas)
                 const char* col1[] = { "W / FLECHA ARRIBA .. PEDALEAR", "S / FLECHA ABAJO ... FRENAR", "A D / FLECHAS ..... GIRAR",
-                    "SHIFT ............. IMPULSO", "C ................. CAMBIAR CÁMARA", "P ................. PAUSA", "H ................. AYUDA" };
+                    "SHIFT ............. IMPULSO", "C ................. CAMBIAR CÁMARA", "P ................. PAUSA", "H ................. AYUDA",
+                    "V ................. SONIDO ON/OFF" };
                 const char* col2[] = { "F ................. FARO ON/OFF", "N ................. DÍA / NOCHE", "R ................. REINTENTAR",
-                    "M ................. CAMBIAR VERSIÓN", "T ................. VERSIÓN DEMO (SOLO AQUÍ)", "TAB ............... LIBERAR RATÓN", "ESC ............... SALIR" };
+                    "M ................. CAMBIAR VERSIÓN", "T ................. VERSIÓN DEMO (SOLO AQUÍ)", "TAB ............... LIBERAR RATÓN", "ESC ............... SALIR",
+                    " " };
                 float yc = H * 0.78f - ch - 28.0f;
                 Texto::Dibujar("CONTROLES", W * 0.5f - Texto::Ancho("CONTROLES", 2.5f) * 0.5f, yc + 6.0f, 2.5f, AMARILLO, W, H);
                 yc -= 24.0f;
-                for (int i = 0; i < 7; i++) {
+                for (int i = 0; i < 8; i++) {
                     Texto::Dibujar(col1[i], 60.0f, yc, 2.0f, BLANCO, W, H);
                     Texto::Dibujar(col2[i], W * 0.5f + 20.0f, yc, 2.0f, BLANCO, W, H);
                     yc -= 22.0f;
@@ -627,6 +647,7 @@ int main() {
                     "M ................... CAMBIAR DE VERSIÓN",
                     "P ................... PAUSA / CONTINUAR",
                     "H ................... AYUDA",
+                    "V ................... SONIDO ON/OFF",
                     "TAB ................. LIBERAR / CAPTURAR RATON",
                     "ESC ................. SALIR" };
                 float yc = H * 0.70f;
@@ -652,6 +673,7 @@ int main() {
     if (hudVBO) glDeleteBuffers(1, &hudVBO);
     if (hudProgram) glDeleteProgram(hudProgram);
     Texto::Fin();
+    Audio::Fin();
 
     glfwTerminate();
     return 0;
@@ -721,6 +743,19 @@ void DoMovement() {
     }
 
     sJugador = sActual;
+
+    // Novato: avisa cada vez que el ciclista se sale de la pista. Intermedia: solo la primera vez. Avanzada: nunca.
+    // (mismo límite que usa GameLogic para desgastar las llantas)
+    if ((game.dificultad == DIF_BASICA || game.dificultad == DIF_INTERMEDIA) && game.estado == STATUS_JUGANDO
+        && !tourAuto && !modoExploracionTepoz && sActual < 475.0f && std::abs(lateralActual) > 1.35f)
+        fueraPistaTimer += deltaTime;
+    else
+        fueraPistaTimer = 0.0f;
+    if (game.dificultad == DIF_INTERMEDIA && !vistoAvisoPista && fueraPistaTimer > 0.3f) {
+        vistoAvisoPista = true;
+        avisoPistaTimer = 5.0f;
+    }
+    if (avisoPistaTimer > 0.0f) avisoPistaTimer -= deltaTime;
 
     // Multas de semáforo: penaliza -5 PSI si cruza la línea cuando la fase está en rojo
     static float sAnterior = 0.0f;
@@ -963,6 +998,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
     }
     if (key == GLFW_KEY_F && action == GLFW_PRESS) { faroEncendido = !faroEncendido; }
     if (key == GLFW_KEY_N && action == GLFW_PRESS) { esDeNoche = !esDeNoche; }
+    if (key == GLFW_KEY_V && action == GLFW_PRESS) { Audio::AlternarSilencio(); }   // sonido ON/OFF
     if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         PrintPosition();
     }
@@ -987,6 +1023,9 @@ void ResetToStart() {
     zonaActual = -1;
     multasSemaforo = 0;
     avisoTimer = 0.0f;
+    fueraPistaTimer = 0.0f;
+    avisoPistaTimer = 0.0f;
+    vistoAvisoPista = false;
     modoExploracionTepoz = false;
 
     glm::vec3 f = player.GetFrontVector();
