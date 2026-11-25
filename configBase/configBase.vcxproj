@@ -147,11 +147,14 @@
     <None Include="Shader\modelLoading.vs" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioAmbiente.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CicloviaScene.h" />
     <ClInclude Include="GameLogic.h" />
     <ClInclude Include="Mesh.h" />
+    <ClInclude Include="miniaudio.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="Narracion.h" />
     <ClInclude Include="PlayerBike.h" />
     <ClInclude Include="PolancoScene.h" />
     <ClInclude Include="RiderPose.h" />
@@ -162,6 +165,7 @@
     <ClInclude Include="Texto.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AudioImpl.cpp" />
     <ClCompile Include="CicloviaScene.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PlayerBike.cpp" />

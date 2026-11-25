@@ -91,6 +91,32 @@ public:
         }
     }
 
+    // Esquinas mínima y máxima del modelo completo (para colocarlo con sus medidas reales)
+    void Limites(glm::vec3& mn, glm::vec3& mx) const
+    {
+        mn = glm::vec3(1e9f); mx = glm::vec3(-1e9f);
+        for (size_t i = 0; i < this->meshes.size(); i++)
+            for (size_t j = 0; j < this->meshes[i].vertices.size(); j++)
+            {
+                const glm::vec3& p = this->meshes[i].vertices[j].Position;
+                mn = glm::min(mn, p); mx = glm::max(mx, p);
+            }
+    }
+
+    // Altura (eje Y) del modelo completo en unidades del archivo
+    float AlturaY() const
+    {
+        float mn = 1e9f, mx = -1e9f;
+        for (size_t i = 0; i < this->meshes.size(); i++)
+            for (size_t j = 0; j < this->meshes[i].vertices.size(); j++)
+            {
+                float y = this->meshes[i].vertices[j].Position.y;
+                if (y < mn) mn = y;
+                if (y > mx) mx = y;
+            }
+        return (mx > mn) ? (mx - mn) : 1.0f;
+    }
+
     // Dibuja todo el modelo menos las piezas cuyo nombre contenga una o dos palabras dadas.
     void DrawExcluding(Shader shader, const string& clave1, const string& clave2 = "")
     {

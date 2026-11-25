@@ -80,6 +80,16 @@ CicloviaScene::CicloviaScene() {
     bridgeModel = nullptr;
     treeModel = nullptr;
     ocoteModel = nullptr;
+    encinoModel = nullptr;
+    arbolSecoModel = nullptr;
+    mezquiteModel = nullptr;
+    cazahuateModel = nullptr;
+    organoModel = nullptr;
+    biznagaModel = nullptr;
+    izoteModel = nullptr;
+    puenteRuralModel = nullptr;
+    letreroAModel = nullptr;
+    letreroBModel = nullptr;
     mountainModel = nullptr;
     bushModel = nullptr;
     signModel = nullptr;
@@ -123,6 +133,16 @@ CicloviaScene::~CicloviaScene() {
     delete bridgeModel;
     delete treeModel;
     delete ocoteModel;
+    delete encinoModel;
+    delete arbolSecoModel;
+    delete mezquiteModel;
+    delete cazahuateModel;
+    delete organoModel;
+    delete biznagaModel;
+    delete izoteModel;
+    delete puenteRuralModel;
+    delete letreroAModel;
+    delete letreroBModel;
     delete bushModel;
     delete signModel;
     delete trafficConeModel;
@@ -160,6 +180,16 @@ void CicloviaScene::Init() {
     trackModel = new Model((char*)"../assets/obj/pista/pista.obj");
     treeModel = new Model((char*)"../assets/obj/arbol/arbol.obj");
     ocoteModel = new Model((char*)"../assets/obj/ocote/ocote.obj");
+    encinoModel = new Model((char*)"../assets/obj/Encino/Encino.obj");
+    arbolSecoModel = new Model((char*)"../assets/obj/ArbolSeco/ArbolSeco.obj");
+    mezquiteModel  = new Model((char*)"../assets/obj/Mezquite/Mezquite.obj");
+    cazahuateModel = new Model((char*)"../assets/obj/Cazahuate/Cazahuate.obj");
+    organoModel    = new Model((char*)"../assets/obj/Organo/Organo.obj");
+    biznagaModel   = new Model((char*)"../assets/obj/Biznaga/Biznaga.obj");
+    izoteModel     = new Model((char*)"../assets/obj/Izote/Izote.obj");
+    puenteRuralModel = new Model((char*)"../assets/obj/Puente/Puente.obj");
+    letreroAModel    = new Model((char*)"../assets/obj/LetreroA/LetreroA.obj");
+    letreroBModel    = new Model((char*)"../assets/obj/LetreroB/LetreroB.obj");
     mountainModel = new Model((char*)"../assets/obj/Monta\xF1" "a/monta\xF1" "a.obj");
     bushModel = new Model((char*)"../assets/obj/arbusto/arbusto.obj");
     building1Model = new Model((char*)"../assets/obj/edificio-01/edificio-01.obj");
@@ -491,6 +521,7 @@ void CicloviaScene::Draw(Shader& shader, GLint modelLoc) {
     // 4. Renderizado de sub-escenas y entidades animadas
     DrawUrbana(shader, modelLoc);
     DrawRural(shader, modelLoc);
+    DrawPuenteRural(shader, modelLoc);
     DrawPueblo(shader, modelLoc);
     DrawAves(shader, modelLoc);
 }
@@ -612,6 +643,59 @@ void CicloviaScene::DrawCuadrupedo(Model* m, Shader& shader, GLint modelLoc,
     }
 }
 
+// Puente rural (tramo recto s=280-300) y los dos letreros "CICLOVIA" / "RURAL CDMX" antes del puente
+void CicloviaScene::DrawPuenteRural(Shader& shader, GLint modelLoc) {
+    const float S_PUENTE   = 290.0f;    // centro del puente (tramo recto 280 a 300 m)
+    const float Z_PUENTE   = 45.6f;     // centro del puente en el .obj (z = -45.6)
+    const float ROT_PUENTE = 180.0f;
+    const float HUNDIDO    = 0.20f;     // cuanto se entierra la base (sube si ves huecos bajo los zocalos)
+    const float S_LETREROS = S_PUENTE - 16.5f;   // los dos letreros a la misma altura de la ruta
+
+    // Pendiente de la ruta en un punto (grados): sube a lo largo de -Z del modelo
+    auto Pendiente = [&](float s) {
+        float y1 = Ruta::En(s - 8.0f).pos.y, y2 = Ruta::En(s + 8.0f).pos.y;
+        return glm::degrees(std::atan2(y2 - y1, 16.0f));
+    };
+    // Punto del eje en s + giro de la ruta + inclinacion del terreno
+    auto SobreRuta = [&](float s) {
+        Ruta::Muestra r = Ruta::En(s);
+        glm::vec3 pos = r.pos;
+        pos.y = Ruta::AlturaSuelo(pos.x, pos.z) - HUNDIDO;
+        glm::mat4 m(1.0f);
+        m = glm::translate(m, pos);
+        m = glm::rotate(m, glm::radians(r.headingDeg), glm::vec3(0.0f, 1.0f, 0.0f));
+        m = glm::rotate(m, glm::radians(Pendiente(s)), glm::vec3(1.0f, 0.0f, 0.0f));
+        return m;
+    };
+
+    // --- Puente: sigue la pendiente y gira 180 sobre su centro ---
+    if (puenteRuralModel) {
+        glm::mat4 model = SobreRuta(S_PUENTE);
+        model = glm::rotate(model, glm::radians(ROT_PUENTE), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, Z_PUENTE));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        puenteRuralModel->Draw(shader);
+    }
+
+    // --- Letreros: uno a cada lado, con las palabras fuera del camino ---
+    // cx, cz = centro de la palabra en el .obj; lado = donde queda su centro respecto al eje
+    // (A mide 12.3 m y B 16.8 m: el extremo interior queda a 3.2 m del eje en los dos)
+    struct Letrero { Model* m; float cx, cz, rotY, lado; };
+    const Letrero letreros[] = {
+        { letreroAModel, -4.6f, -30.25f, -90.0f,  -9.35f },   // CICLOVIA   (izquierda)
+        { letreroBModel,  4.6f, -28.00f,  90.0f,  11.60f },   // RURAL CDMX (derecha)
+    };
+    for (const Letrero& L : letreros) {
+        if (!L.m) continue;
+        glm::mat4 model = SobreRuta(S_LETREROS);
+        model = glm::translate(model, glm::vec3(L.lado, 0.0f, 0.0f));                   // lado de la ruta
+        model = glm::rotate(model, glm::radians(L.rotY), glm::vec3(0.0f, 1.0f, 0.0f));  // giro sobre su centro
+        model = glm::translate(model, glm::vec3(-L.cx, 0.0f, -L.cz));                   // centro de la palabra al origen
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        L.m->Draw(shader);
+    }
+}
+
 // Pobla y anima los biomas de bosque (210-320 m), zona árida (320-475 m) y la fauna local
 void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
     glm::mat4 model(1.0f);
@@ -634,43 +718,87 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         return x - std::floor(x);
         };
 
-    // 1. Bosque: Ocotes y Árboles con balanceo de viento en follaje
+    // Escala para que cada modelo mida su altura real (metros)
+    auto escalaA = [](Model* m, float alturaReal) {
+        return m ? alturaReal / m->AlturaY() : 1.0f;
+        };
+    const float K_CABALLO = escalaA(caballoModel, 1.60f);
+    const float K_CABRA   = escalaA(cabraModel,   0.75f);
+    const float K_OVEJA   = escalaA(ovejaModel,   0.80f);
+    const float K_PERRO   = escalaA(perroModel,   0.55f);
+    const float K_NOPAL   = escalaA(nopalModel,   1.80f);
+    const float K_MAGUEY  = escalaA(magueyModel,  1.30f);
+
+    // 1. Bosque: tres capas (cercana, media y de fondo) con ocotes, encinos, árboles y árboles secos
     if (treeModel || ocoteModel) {
+        // Dibuja un árbol: lado = +1 derecha / -1 izquierda, dist = metros laterales desde el eje de la ruta
+        auto plantar = [&](int sem, float sJ, float lado, float dist, float extraEsc) {
+            // despeja la estatua ecuestre (s=232, izquierda) y el puente rural con sus letreros (s=268-296)
+            if (lado < 0.0f && sJ > 224.0f && sJ < 240.0f && dist < 12.0f) return;
+            if (sJ > 268.0f && sJ < 296.0f && dist < 18.0f) return;
+
+            float esc = (0.90f + azar(sem + 900) * 0.25f) * extraEsc;
+            float giro = azar(sem + 1300) * 360.0f;
+            glm::vec3 p = punto(sJ, lado * dist);
+
+            // Variedad: ocote 40 %, encino 25 %, árbol 20 %, árbol seco 15 %
+            float r = azar(sem + 2100);
+            Model* arbolElegido = treeModel;
+            float factorEsc = 1.5f;
+            if (r < 0.40f && ocoteModel)       { arbolElegido = ocoteModel;     factorEsc = 1.4f; }
+            else if (r < 0.65f && encinoModel) { arbolElegido = encinoModel;    factorEsc = 1.4f; }
+            else if (r < 0.85f)                { arbolElegido = treeModel;      factorEsc = 1.5f; }
+            else if (arbolSecoModel)           { arbolElegido = arbolSecoModel; factorEsc = 1.3f; }
+            if (!arbolElegido) arbolElegido = ocoteModel;
+            const char* claveTronco = (arbolElegido == ocoteModel) ? "Corteza" : "Tronco";   // en encino y seco el material se llama Tronco_...
+            esc *= factorEsc;
+
+            // Tronco rígido
+            glm::mat4 mT(1.0f);
+            mT = glm::translate(mT, p);
+            mT = glm::rotate(mT, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
+            mT = glm::scale(mT, glm::vec3(esc));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(mT));
+            arbolElegido->DrawMaterialMatching(shader, claveTronco, true);
+
+            // Follaje con viento procedural
+            float tViento = (float)glfwGetTime();
+            float faseV = azar(sem + 1700) * 6.28f;
+            float vientoX = std::sin(tViento * 1.3f + faseV) * 2.5f;
+            float vientoZ = std::sin(tViento * 0.9f + faseV * 1.7f) * 1.8f;
+
+            glm::mat4 mF(1.0f);
+            mF = glm::translate(mF, p);
+            mF = glm::rotate(mF, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
+            mF = glm::rotate(mF, glm::radians(vientoX), glm::vec3(1.0f, 0.0f, 0.0f));
+            mF = glm::rotate(mF, glm::radians(vientoZ), glm::vec3(0.0f, 0.0f, 1.0f));
+            mF = glm::scale(mF, glm::vec3(esc));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(mF));
+            arbolElegido->DrawMaterialMatching(shader, claveTronco, false);
+        };
+
+        // Capa cercana (7.5 a 15 m de la ruta)
         int k = 0;
-        for (float s = INICIO_E2 + 5.0f; s < FIN_BOSQUE; s += 8.0f, k++) {
+        for (float s = INICIO_E2 + 5.0f; s < FIN_BOSQUE; s += 5.0f, k++) {
             for (int L = 0; L < 2; L++) {
                 int sem = k * 2 + L;
-                float sJ = s + azar(sem) * 3.0f;
-                float dist = 7.5f + azar(sem + 500) * 7.5f;
-                float esc = 0.90f + azar(sem + 900) * 0.25f;
-                float giro = azar(sem + 1300) * 360.0f;
-                glm::vec3 p = punto(sJ, (L == 0 ? 1.0f : -1.0f) * dist);
-
-                Model* arbolElegido = (azar(sem + 2100) < 0.6f && ocoteModel) ? ocoteModel : treeModel;
-                const char* claveTronco = (arbolElegido == ocoteModel) ? "Corteza" : "Tronco";
-
-                // Tronco rígido
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, p);
-                model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
-                model = glm::scale(model, glm::vec3(esc));
-                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-                arbolElegido->DrawMaterialMatching(shader, claveTronco, true);
-
-                // Follaje con viento procedural
-                float tViento = (float)glfwGetTime();
-                float faseV = azar(sem + 1700) * 6.28f;
-                float vientoX = std::sin(tViento * 1.3f + faseV) * 2.5f;
-                float vientoZ = std::sin(tViento * 0.9f + faseV * 1.7f) * 1.8f;
-
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, p);
-                model = glm::rotate(model, glm::radians(giro), glm::vec3(0.0f, 1.0f, 0.0f));
-                model = glm::rotate(model, glm::radians(vientoX), glm::vec3(1.0f, 0.0f, 0.0f));
-                model = glm::rotate(model, glm::radians(vientoZ), glm::vec3(0.0f, 0.0f, 1.0f));
-                model = glm::scale(model, glm::vec3(esc));
-                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-                arbolElegido->DrawMaterialMatching(shader, claveTronco, false);
+                plantar(sem, s + azar(sem) * 3.0f, (L == 0 ? 1.0f : -1.0f), 7.5f + azar(sem + 500) * 7.5f, 1.0f);
+            }
+        }
+        // Capa media (15 a 30 m): da cuerpo al bosque
+        k = 0;
+        for (float s = INICIO_E2 + 3.0f; s < FIN_BOSQUE + 10.0f; s += 4.5f, k++) {
+            for (int L = 0; L < 2; L++) {
+                int sem = 20000 + k * 2 + L;
+                plantar(sem, s + azar(sem) * 3.0f, (L == 0 ? 1.0f : -1.0f), 15.0f + azar(sem + 500) * 15.0f, 1.1f);
+            }
+        }
+        // Capa de fondo (30 a 65 m): árboles grandes que cierran el horizonte
+        k = 0;
+        for (float s = INICIO_E2; s < FIN_BOSQUE + 15.0f; s += 6.0f, k++) {
+            for (int L = 0; L < 2; L++) {
+                int sem = 30000 + k * 2 + L;
+                plantar(sem, s + azar(sem) * 4.0f, (L == 0 ? 1.0f : -1.0f), 30.0f + azar(sem + 500) * 35.0f, 1.3f);
             }
         }
     }
@@ -763,7 +891,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                     model = glm::mat4(1.0f);
                     model = glm::translate(model, p);
                     model = glm::rotate(model, glm::radians(azar(sem + 250) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-                    model = glm::scale(model, glm::vec3(0.90f));
+                    model = glm::scale(model, glm::vec3(K_MAGUEY));
                     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                     magueyModel->Draw(shader);
                 }
@@ -776,7 +904,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                     model = glm::mat4(1.0f);
                     model = glm::translate(model, p);
                     model = glm::rotate(model, glm::radians(azar(sem + 350) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-                    model = glm::scale(model, glm::vec3(0.90f));
+                    model = glm::scale(model, glm::vec3(K_NOPAL));
                     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                     nopalModel->Draw(shader);
                 }
@@ -803,6 +931,56 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
                 model = glm::scale(model, glm::vec3(0.85f));
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                 zacatonModel->Draw(shader);
+            }
+        }
+    }
+
+    // 2b. Más vegetación y árboles en el bioma árido: dos capas (media y de fondo) con mezcla de especies
+    {
+        auto plantarArido = [&](int sem, float sJ, float lado, float dist) {
+            // deja libre la zona de los animales (s=370) y el borde de la ruta
+            if (sJ > 356.0f && sJ < 384.0f && dist < 11.0f) return;
+
+            float r = azar(sem + 10);
+            float e = 0.8f + azar(sem + 20) * 0.5f;      // variación de tamaño 0.8 a 1.3
+            Model* m = nullptr;
+            float esc = 1.0f;
+            if (r < 0.12f)      { m = huizacheModel;   esc = 0.95f * (1.3f + azar(sem + 30) * 0.6f); }   // huizaches grandes (árbol del semiárido)
+            else if (r < 0.19f) { m = arbolSecoModel;  esc = 1.0f * e; }
+            else if (r < 0.30f) { m = mezquiteModel;   esc = 0.75f * e; }    // mezquite: copa ancha tipo sombrilla
+            else if (r < 0.37f) { m = cazahuateModel;  esc = 1.0f * e; }     // cazahuate: tronco blanco
+            else if (r < 0.46f) { m = magueyModel;     esc = K_MAGUEY * e; }
+            else if (r < 0.55f) { m = nopalModel;      esc = K_NOPAL * e; }
+            else if (r < 0.64f) { m = organoModel;     esc = 1.0f * e; }     // cactus órgano
+            else if (r < 0.72f) { m = biznagaModel;    esc = 1.2f * e; }     // biznaga
+            else if (r < 0.79f) { m = izoteModel;      esc = 1.0f * e; }     // izote / yuca
+            else if (r < 0.90f) { m = zacatonModel;    esc = 0.85f * e; }
+            else                { m = tepetateModel;   esc = 0.85f * (1.0f + azar(sem + 40) * 0.5f); }
+            if (!m) return;
+
+            glm::vec3 p = punto(sJ, lado * dist);
+            glm::mat4 mm(1.0f);
+            mm = glm::translate(mm, p);
+            mm = glm::rotate(mm, glm::radians(azar(sem + 50) * 360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            mm = glm::scale(mm, glm::vec3(esc));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(mm));
+            m->Draw(shader);
+        };
+
+        // Capa media (12 a 24 m de la ruta)
+        int kA = 0;
+        for (float s = INICIO_ARIDO + 1.0f; s < FIN_ARIDO; s += 3.5f, kA++) {
+            for (int L = 0; L < 2; L++) {
+                int sem = 40000 + kA * 2 + L;
+                plantarArido(sem, s + azar(sem) * 2.5f, (L == 0 ? 1.0f : -1.0f), 12.0f + azar(sem + 500) * 12.0f);
+            }
+        }
+        // Capa de fondo (24 a 45 m): llena el horizonte
+        kA = 0;
+        for (float s = INICIO_ARIDO; s < FIN_ARIDO; s += 4.5f, kA++) {
+            for (int L = 0; L < 2; L++) {
+                int sem = 50000 + kA * 2 + L;
+                plantarArido(sem, s + azar(sem) * 3.0f, (L == 0 ? 1.0f : -1.0f), 24.0f + azar(sem + 500) * 21.0f);
             }
         }
     }
@@ -936,6 +1114,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             model = glm::rotate(model, glm::radians(rumboBase + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
             model = glm::rotate(model, glm::radians(c.pastoreoPitch), glm::vec3(0.0f, 0.0f, 1.0f));
 
+            model = glm::scale(model, glm::vec3(K_CABRA));
             DrawCuadrupedo(cabraModel, shader, modelLoc, model, c.walkPhase, 0.24f, -0.26f, 0.63f, c.ampPatas);
         }
     }
@@ -958,6 +1137,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
             model = glm::rotate(model, glm::radians(rumboBase + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
             model = glm::rotate(model, glm::radians(c.pastoreoPitch), glm::vec3(0.0f, 0.0f, 1.0f));
 
+            model = glm::scale(model, glm::vec3(K_OVEJA));
             DrawCuadrupedo(ovejaModel, shader, modelLoc, model, c.walkPhase, 0.18f, -0.18f, 0.40f, c.ampPatas);
         }
     }
@@ -972,6 +1152,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         model = glm::rotate(model, glm::radians(rumboBase - 20.0f + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::rotate(model, glm::radians(c.pastoreoPitch * 0.4f), glm::vec3(0.0f, 0.0f, 1.0f));
 
+        model = glm::scale(model, glm::vec3(K_CABALLO));
         DrawCuadrupedo(caballoModel, shader, modelLoc, model, c.walkPhase, 0.50f, -0.52f, 1.28f, c.ampPatas);
     }
 
@@ -984,6 +1165,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         model = glm::translate(model, pP1);
         model = glm::rotate(model, glm::radians(rumboBase - 15.0f + c.anguloGiroDeg), glm::vec3(0.0f, 1.0f, 0.0f));
 
+        model = glm::scale(model, glm::vec3(K_PERRO));
         DrawCuadrupedo(perroModel, shader, modelLoc, model, c.walkPhase, 0.18f, -0.18f, 0.35f, c.ampPatas);
 
         glm::vec3 pP2 = punto(S_REBANO + 2.5f, -4.6f);
@@ -992,7 +1174,7 @@ void CicloviaScene::DrawRural(Shader& shader, GLint modelLoc) {
         model = glm::mat4(1.0f);
         model = glm::translate(model, pP2);
         model = glm::rotate(model, glm::radians(rumboBase + 45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.0f, respiroP2, 1.0f));
+        model = glm::scale(model, glm::vec3(K_PERRO, K_PERRO * respiroP2, K_PERRO));
 
         DrawCuadrupedo(perroModel, shader, modelLoc, model, 0.0f, 0.18f, -0.18f, 0.35f, 0.0f);
     }
